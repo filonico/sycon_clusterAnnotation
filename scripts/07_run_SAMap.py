@@ -15,7 +15,6 @@ from argparse import RawTextHelpFormatter
 #     INPUTS     #
 ##################
 
-input_dir = './04_preprocessed_scRNAseqs/'
 mapping_dir = './03_pairwise_diamond/'
 
 # load the table with species metadata
@@ -90,6 +89,11 @@ parser.add_argument("-c", "--clustering",
                     choices = ["precomputed", "leiden"], default = "leiden",
                     help = "Clustering method. Choose between \"precomputed\" (if you already know the clusters) and \"leiden\" (to allow SAMap do the leiden clustering). [default : leiden]")
 
+parser.add_argument("-i", "--input_dir",
+                    default = "./04_preprocessed_scRNAseqs/",
+                    help = "Input directory where h5ad files are stored. [default : ./04_preprocessed_scRNAseqs/]")
+
+
 parser.add_argument("-o", "--output_dir", required = True,
                     help = "Output directory.")
 
@@ -118,6 +122,7 @@ clustering_method_dict = {
 #     ANALYSIS RECAP     #
 ##########################
 
+input_dir = args.input_dir
 output_dir = args.output_dir
 
 # create output dir if does not exist
@@ -130,6 +135,7 @@ print(f"Species to process: {', '.join(args.species)}")
 print(f"File to load: {input_data_type_dict[args.data]}")
 print(f"Type of analysis: {type_of_analysis_dict[args.analysis]}")
 print(f"Cell-clustering method: {clustering_method_dict[args.clustering]}")
+print(f"Input directory: {input_dir}")
 print(f"Output directory: {output_dir}")
 print("##############################\n")
 

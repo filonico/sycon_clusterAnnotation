@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-setwd("/data/evassvis/fn76/ANALYSIS/sycon_clusterAnnotation")
+setwd("/data/evassvis/fn76/sycon_clusterAnnotation")
 
 library(Seurat)
 library(reticulate)
@@ -190,6 +190,18 @@ load_placozoa_data <- function(directory,
 #######################
 
 load(scil_files$Rdata)
+
+# umap <- Sycon %>%
+#   SetIdent(value = "seurat_clusters") %>%
+#   DimPlot2(pt.size = 2, cols = "light",
+#            label = TRUE, label.size = 3, label.color = "black", box = TRUE,
+#            theme = theme_umap_arrows())
+# umap
+# 
+# ggsave("umap_sycon.png",
+#        umap, device = png,
+#        dpi = 300, height = 8, width = 8, units = ("in"), bg = 'white')
+
 scil_S.object <- Seurat::CreateSeuratObject(counts = Seurat::GetAssayData(object = Sycon,
                                                                           assay = "RNA",
                                                                           layer = 'counts'),
@@ -227,6 +239,19 @@ aque_afterFiltering <- plot_featuresVScounts(aque_S.object,
 # convert SeuratObject to anndata file
 fromSeurat_toAnndata(aque_afterFiltering$S.object,
                      output_path, aque_files$out_h5ad)
+
+# SCTransform data
+aque_afterFiltering$S.object <- aque_afterFiltering$S.object %>%
+  SCTransform(verbose = TRUE)
+
+# dim reductions
+aque_afterFiltering$S.object <- aque_afterFiltering$S.object %>%
+  RunPCA(verbose = TRUE)
+aque_afterFiltering$S.object <- aque_afterFiltering$S.object %>%
+  RunUMAP(dims = 1:30, verbose = TRUE)
+
+fromSeurat_toAnndata(aque_afterFiltering$S.object,
+                     output_path, "Aque_cellFiltered_SCT_PCA_UMAP.h5ad")
 
 
 # ############################
@@ -394,7 +419,7 @@ slac_S.object <- read.table(file = gzfile(slac_files$UMItable),
                              
                              # add meta data with pre-computed cell clusters and annotations
                              meta.data = read.table(slac_files$cell_metadata, header = TRUE, sep = "\t") %>%
-                               select(cell, clusterID, cell_type, cell_type_newName) %>%
+                               # select(cell, clusterID, cell_type, cell_type_newName) %>%
                                mutate(cell = str_replace_all(cell, c('-' = '.'))) %>%
                                column_to_rownames(var = "cell"))
 
@@ -410,6 +435,18 @@ slac_afterFiltering <- plot_featuresVScounts(slac_S.object,
 fromSeurat_toAnndata(slac_afterFiltering$S.object,
                      output_path, slac_files$out_h5ad)
 
+# SCTransform data
+slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
+  SCTransform(verbose = TRUE)
+
+# dim reductions
+slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
+  RunPCA(verbose = TRUE)
+slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
+  RunUMAP(dims = 1:30, verbose = TRUE)
+
+fromSeurat_toAnndata(slac_afterFiltering$S.object,
+                     output_path, "Slac_cellFiltered_SCT_PCA_UMAP.h5ad")
 
 #########################
 #     S. PISTILLATA     #

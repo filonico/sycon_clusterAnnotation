@@ -29,3 +29,7 @@ precompiled_softwares/SAMap
 .Rhistory
 slurm-339*
 *tmp*
+TOM/*
+08_bonsai*
+09_gene_annotation/*
+1*/*

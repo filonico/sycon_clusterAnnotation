@@ -15,6 +15,12 @@ library(metacell)
 # import the samap anndata object
 ScilSlac_samap <- sceasy::convertFormat("05_SAMap/ScilSlac_leiden3Clusters_samap.h5ad", from = "anndata", to = "seurat")
 
+# import the samap anndata object
+AqueSlac_samap <- sceasy::convertFormat("05_SAMap/AqueSlac_leiden3Clusters_samap.h5ad", from = "anndata", to = "seurat")
+
+# import the samap anndata object
+AqueScil_samap <- sceasy::convertFormat("05_SAMap/AqueScil_leiden3Clusters_samap.h5ad", from = "anndata", to = "seurat")
+
 # import Chris's gene pairs
 ScilSlac_testPairs <- read.table("00_input/test_pairs.tsv", header = TRUE, sep = "\t") %>%
   # let IDs match the one from the anndata object
@@ -41,14 +47,59 @@ ScilSlac_samap@meta.data <- ScilSlac_samap@meta.data %>%
   species_full = str_replace(species_full, "Spongilla lacustris", "Spongilla"),
   species_full = str_replace(species_full, "Sycon ciliatum", "Sycon"))
 
+# add a meta.data column with merged cell annotation
+AqueSlac_samap@meta.data <- AqueSlac_samap@meta.data %>%
+  mutate(merged = pmap_chr(list(Slac_cell_type, Aque_cell_type), ~ {
+    if (..1 != "unassigned") {
+      paste0("Slac_", ..1)
+    } else if (..2 != "unassigned") {
+      paste0("Aque_", ..2)
+    } else {
+      NA_character_
+    }
+  }),
+  species_full = str_replace(species_full, "Spongilla lacustris", "Spongilla"),
+  species_full = str_replace(species_full, "Amphimedon queenslandica", "Amphimedon"))
+
+# add a meta.data column with merged cell annotation
+AqueScil_samap@meta.data <- AqueScil_samap@meta.data %>%
+  mutate(merged = pmap_chr(list(Scil_seurat_clusters, Aque_cell_type), ~ {
+    if (..1 != "unassigned") {
+      paste0("Scil_", ..1)
+    } else if (..2 != "unassigned") {
+      paste0("Aque_", ..2)
+    } else {
+      NA_character_
+    }
+  }),
+  species_full = str_replace(species_full, "Sycon ciliatum", "Sycon"),
+  species_full = str_replace(species_full, "Amphimedon queenslandica", "Amphimedon"))
+
+
 # plot the UMAP with species assignment
 ScilSlac_umap_species <- ScilSlac_samap %>%
   SetIdent(value = 'species_full') %>%
-  DimPlot2(theme = theme_umap_arrows(), pt.size = 0.8, cols = "iwh_intense") +
+  DimPlot2(theme = theme_umap_arrows(), pt.size = 0.8, cols = c("#ffa500", "#ff186e")) +
   theme(legend.position = "inside",
         legend.position.inside = c(0,0))
 
 ScilSlac_umap_species
+
+AqueSlac_umap_species <- AqueSlac_samap %>%
+  SetIdent(value = 'species_full') %>%
+  DimPlot(theme = theme_umap_arrows(), alpha = 0.5, pt.size = 2, cols = c("#2690f8", "#ffa500")) +
+  theme(legend.position = "inside",
+        legend.position.inside = c(0,0))
+
+AqueSlac_umap_species
+
+AqueScil_umap_species <- AqueScil_samap %>%
+  SetIdent(value = 'species_full') %>%
+  DimPlot2(theme = theme_umap_arrows(), pt.size = 2, cols = c("#2690f8", "#ff186e")) +
+  theme(legend.position = "inside",
+        legend.position.inside = c(0,0))
+
+AqueScil_umap_species
 
 # plot the UMAP with cell-type assignment
 ScilSlac_umap_cellAnno <- DimPlot(object = ScilSlac_samap, group.by = 'merged', alpha = 0.5, pt.size = 0.8) %>%
@@ -59,6 +110,24 @@ ScilSlac_umap_cellAnno <- DimPlot(object = ScilSlac_samap, group.by = 'merged', 
         axis.line = element_blank(),
         axis.ticks = element_blank())
 ScilSlac_umap_cellAnno
+
+AqueSlac_umap_cellAnno <- DimPlot(object = AqueSlac_samap, group.by = 'merged', alpha = 0.5, pt.size = 2) %>%
+  LabelClusters(id = 'merged', repel = TRUE, max.overlaps = Inf, size = 3) +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank())
+AqueSlac_umap_cellAnno
+
+AqueScil_umap_cellAnno <- DimPlot(object = AqueScil_samap, group.by = 'merged', alpha = 0.5, pt.size = 2) %>%
+  LabelClusters(id = 'merged', repel = TRUE, max.overlaps = Inf, size = 3) +
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank())
+AqueScil_umap_cellAnno
 
 # identify common features between Chris's gene pairs and SAMap analysed data
 common_features <- as.vector(t(ScilSlac_testPairs %>% select(Slac,Scil))) %in% rownames(ScilSlac_samap)
@@ -234,6 +303,19 @@ ScilSlac_umap_cellAnno_integrated
 # plot a panel with the 2 UMAPs and save it to a file
 panel <- ggpubr::ggarrange(ScilSlac_umap_species, ScilSlac_umap_cellAnno, ScilSlac_umap_cellAnno_integrated, ncol = 3)
 panel
-ggsave("05_SAMap/02_gene_pairs/panel_ScilSlac_samapIntegration.png",
+panel <- ggpubr::ggarrange(ScilSlac_umap_species, ScilSlac_umap_cellAnno, ncol = 2)
+panel
+panel <- ggpubr::ggarrange(AqueSlac_umap_species, AqueSlac_umap_cellAnno, ncol = 2)
+panel
+panel <- ggpubr::ggarrange(AqueScil_umap_species, AqueScil_umap_cellAnno, ncol = 2)
+panel
+
+ggsave("panel_ScilSlac_samapIntegration.png",
        panel, device = png,
-       dpi = 300, height = 10, width = 24, units = ("in"), bg = 'white')
+       dpi = 300, height = 8, width = 16, units = ("in"), bg = 'white')
+ggsave("panel_AqueSlac_samapIntegration.png",
+       panel, device = png,
+       dpi = 300, height = 8, width = 16, units = ("in"), bg = 'white')
+ggsave("panel_AqueScil_samapIntegration.png",
+       panel, device = png,
+       dpi = 300, height = 8, width = 16, units = ("in"), bg = 'white')
