@@ -1,1 +1,0 @@
-# sycon_SAMap
