@@ -56,7 +56,7 @@ with open(input_pkl, "rb") as file:
 
 # create a dictionary for the cell cluster column name
 cellCluster_dict = {"slacOriginal": "cell_type",
-                    "slacRemapped": "seurat_clusters"}
+                    "slacRemapped": "seurat_clusters_2"}
 
 # set the mapping score matrix name
 matrix_filename = os.path.join(output_dir, ID + "_" +
