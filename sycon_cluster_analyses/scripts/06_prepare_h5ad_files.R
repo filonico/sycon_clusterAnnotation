@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-setwd("/data/evassvis/fn76/sycon_clusterAnnotation")
+setwd("/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses/")
 
 library(Seurat)
 library(reticulate)
