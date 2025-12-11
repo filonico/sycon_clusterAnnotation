@@ -37,8 +37,16 @@ sycon_allMarkers_default %>%
   slice_head(n = 5) %>%
   ungroup() -> top5
 
-DoHeatmap(Sycon, features = top5$gene) + NoLegend()
+heatmap <- DoHeatmap(Sycon, features = top5$gene) + NoLegend() +
+  theme(axis.text = element_text(size = 5))
+heatmap
 
+ggsave("07_notableGenes_clusterAnnotation/top5_marker_heatmap.pdf",
+       heatmap, device = cairo_pdf,
+       height = 8*2, width = 10*2, dpi = 300, bg = "white")
+ggsave("07_notableGenes_clusterAnnotation/top5_marker_heatmap.png",
+       heatmap, device = "png",
+       height = 8*2, width = 10*2, dpi = 300, bg = "white")
 
 ###############################
 #     PLOT NOTABLE GENES      #
@@ -66,6 +74,53 @@ notable_genes <- list(
 p <- Sycon %>% SeuratExtend::DotPlot2(features = notable_genes, flip = TRUE)
 
 dotplot_notable_genes <- p$data %>%
+  mutate(Var2 = factor(Var2,
+                       levels = c("1", "7", "11", "12", "13", "16", "23", "21", "26", "29",
+                                  "15", "25",
+                                  "32", "27", "24", "19", "17",
+                                  "22", "20", "28", "30", "31",
+                                  "0", "2", "3", "4", "5", "6", "8", "9", "10", "14", "18"))) %>%
+  filter(pct > 0) %>%
+  # semi_join(sycon_allMarkers_default %>%
+  #             filter(p_val_adj >= 0.05),
+  #           by = c("Var1" = "gene", "Var2" = "cluster")) %>%
+  semi_join(sycon_allMarkers_default,
+            by = c("Var1" = "gene", "Var2" = "cluster")) %>%
+  
+  ggplot(aes(Var1, Var2)) +
+  geom_point(aes(size = pct, fill = zscore), shape = 21) +
+  
+  scale_fill_viridis_c(option = "plasma") +
+  
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(position = "top") +
+  scale_size_continuous(range = c(2,9)) +
+  
+  xlab("Notable genes") +
+  ylab("Cell clusters") +
+  labs(size = "Percent\nexpressed") +
+  
+  facet_grid(cols = vars(FeatureGroup), scales = "free_x", space = "free") +
+  
+  theme(strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold", size = 8),
+        strip.clip = "off",
+        axis.text.x = element_text(angle = 45, hjust = 0, size = 7),
+        panel.border = element_rect(color = "#4f4f4f", fill = NA, linewidth = 0.8),
+        panel.background = element_blank(),
+        panel.grid = element_line(color = "#dbdbdb"))
+
+dotplot_notable_genes
+
+ggsave("07_notableGenes_clusterAnnotation/dotplot_notableGenes.pdf",
+       dotplot_notable_genes, device = cairo_pdf,
+       dpi = 300, height = 8, width = 20, units = ("in"), bg = 'white')
+ggsave("07_notableGenes_clusterAnnotation/dotplot_notableGenes.png",
+       dotplot_notable_genes, device = "png",
+       dpi = 300, height = 8, width = 20, units = ("in"), bg = 'white')
+
+dotplot_notable_genes_sig <- p$data %>%
   mutate(Var2 = factor(Var2,
                        levels = c("1", "7", "11", "12", "13", "16", "23", "21", "26", "29",
                                   "15", "25",
@@ -101,11 +156,14 @@ dotplot_notable_genes <- p$data %>%
         panel.background = element_blank(),
         panel.grid = element_line(color = "#dbdbdb"))
 
-dotplot_notable_genes
+dotplot_notable_genes_sig
 
-ggsave("07_notable_genes/dotplot_notableGenes.pdf",
-       dotplot_notable_genes, device = cairo_pdf,
-       dpi = 300, height = 8, width = 20, units = ("in"), bg = 'white')
+ggsave("07_notableGenes_clusterAnnotation/dotplot_notableGenes_sig.pdf",
+       dotplot_notable_genes_sig, device = cairo_pdf,
+       dpi = 300, height = 8, width = 15, units = ("in"), bg = 'white')
+ggsave("07_notableGenes_clusterAnnotation/dotplot_notableGenes_sig.png",
+       dotplot_notable_genes_sig, device = "png",
+       dpi = 300, height = 8, width = 15, units = ("in"), bg = 'white')
 
 
 ##################################
