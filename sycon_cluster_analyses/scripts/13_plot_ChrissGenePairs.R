@@ -1,4 +1,4 @@
-setwd("/scratch/evassvis/fn76/ANALYSIS/origin_of_vision/")
+setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses")
 
 library(Seurat)
 library(SeuratExtend)
@@ -8,30 +8,79 @@ library(tidyverse)
 library(metacell)
 
 
-##############################
-#     PLOT SAMAP RESULTS     #
-##############################
+#######################
+#     LOAD INPUTS     #
+#######################
 
-# import the samap anndata object
-ScilSlac_samap <- sceasy::convertFormat("05_SAMap/ScilSlac_leiden3Clusters_samap.h5ad", from = "anndata", to = "seurat")
-
-# import the samap anndata object
-AqueSlac_samap <- sceasy::convertFormat("05_SAMap/AqueSlac_leiden3Clusters_samap.h5ad", from = "anndata", to = "seurat")
-
-# import the samap anndata object
-AqueScil_samap <- sceasy::convertFormat("05_SAMap/AqueScil_leiden3Clusters_samap.h5ad", from = "anndata", to = "seurat")
+spongilla_genename_conversion <- read.table("00_input/slac_genome_genename_conversion.ls", sep = "_")
 
 # import Chris's gene pairs
-ScilSlac_testPairs <- read.table("00_input/test_pairs.tsv", header = TRUE, sep = "\t") %>%
-  # let IDs match the one from the anndata object
-  mutate(Scil = paste0("Scil-", Scil),
-         Slac = paste0("Slac-", Slac, "-g1"),
-         # add an NA column to allow to plot just two features in FeaturePlot3.grid
-         NA_column = NA,
-         # add a column to match the SAMap gene pair file
-         combined = paste0(Scil, "|", Slac)) %>%
-  mutate(combined = str_remove(combined, "-g[0-9]$")) %>%
-  relocate(NA_column, .after = 1)
+OneToOne_orthologs <- read.table("00_input/in_paralogs.tsv", header = FALSE, sep = "\t", na.strings = "") %>%
+  drop_na() %>%
+  select(V8, V9) %>%
+  filter(!grepl(";", V8),
+         !grepl(";", V9)) %>%
+  mutate(V9 = str_replace_all(V9, "\\.[0-9]$", "")) %>%
+  left_join(spongilla_genename_conversion, by = join_by("V9" == "V1")) %>%
+  mutate(gene_pairs = paste0("Scil_", V8, ";Slac_", V2),
+         OneToOne = "yes")
+OneToOne_orthologs
+
+# read the SAMap identified gene pairs
+samap_gene_pairs <- read.table("05_SAMap_porifera/02_gene_pairs/ScilSlac_leiden3Clusters_all_samapGenePairs.tsv",
+           header = TRUE, sep = "\t", na.strings = "") %>%
+  select(where(is.character)) %>%
+  pivot_longer(everything(),
+               names_to = "cell_pairs",
+               values_to = "gene_pairs") %>%
+  drop_na()
+
+barplot <- samap_gene_pairs %>%
+  left_join(OneToOne_orthologs) %>%
+  select(-c(V8, V9, V2)) %>%
+  replace_na(list(OneToOne = "No")) %>%
+  
+  ggplot(aes(x = cell_pairs, fill = OneToOne)) +
+  geom_bar() +
+  
+  scale_fill_manual(values = c("#e69f00", "#2271b2")) +
+  
+  labs(x = "Mapped cell-cluster pairs", y = "Number of genes connecting the pairs") +
+  
+  theme_bw(base_size = 12) %+replace%
+  theme(plot.background = element_rect(fill = "transparent", colour = NA), 
+        panel.background = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = "grey90", lineend = "round"),
+        panel.border = element_blank(),
+        legend.background = element_rect(fill = "transparent", colour = NA),
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        legend.key.width = unit(0.4, "cm"),
+        legend.key.height = unit(0.4, "cm"),
+        legend.position = "bottom",
+        plot.title = element_text(size = 13, hjust = 0.0, vjust = 1.75, face = "bold"),
+        axis.line = element_line(color = "black", linewidth = 0.6, lineend = "round"),
+        axis.ticks = element_line(colour = "black", linewidth = 0.6, lineend = "round"),
+        axis.ticks.length = unit(0.20, "cm"),
+        axis.text.y = element_text(color = "black", hjust = 1,
+                                   margin = margin(t = 0, r = 4, b = 0, l = 10)),
+        axis.text.x = element_text(color = "black", angle = 45, hjust = 1, vjust = 1,
+                                   margin = margin(t = 4, r = 0, b = 10, l = 0)),
+        axis.title.x = element_text(size = 13, angle = 0,
+                                    margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.title.y = element_text(size = 13, angle = 90,
+                                    margin = margin(t = 10, r = 0, b = 0, l = 0)))
+barplot
+
+ggsave("07_notableGenes_clusterAnnotation/SAMap_genPairs_ChrissOneToOne.pdf",
+       barplot, device = cairo_pdf,
+       height = 6, width = 8, dpi = 300, bg = "white")
+ggsave("07_notableGenes_clusterAnnotation/SAMap_genPairs_ChrissOneToOne.png",
+       barplot, device = "png",
+       height = 6, width = 8, dpi = 300, bg = "white")
+
+
+
 
 # add a meta.data column with merged cell annotation
 ScilSlac_samap@meta.data <- ScilSlac_samap@meta.data %>%

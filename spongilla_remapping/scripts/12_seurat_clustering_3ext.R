@@ -79,7 +79,7 @@ slac_3ext_remapped <- slac_3ext_remapped %>%
 Idents(object = slac_3ext_remapped) <- "seurat_clusters_2"
 slac_3ext_remapped %>% saveRDS(file = "03_slac_remapped_clustering/slac_3ext_remapped_clustered.Rds")
 slac_3ext_remapped %>% saveRDS(file = "intermediate_results/01_spongilla_Sobjects_umaps/slac_3ext_remapped_clustered.Rds")
-slac_3ext_remapped %>% saveRDS(file = "intermediate_results/01_spongilla_Sobjects_umaps/slac_3ext_remapped_clustered.Rds.xz",
+Sycon_complete %>% saveRDS(file = "/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses/intermediate_results/01_sycon_Sobjects_umaps/Sycon_complete.Rds.xz",
                                compress = "xz")
 
 slac_3ext_remapped <- readRDS(file = "03_slac_remapped_clustering/slac_3ext_remapped_clustered.Rds")
