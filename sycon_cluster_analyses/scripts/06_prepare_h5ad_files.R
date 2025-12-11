@@ -73,9 +73,11 @@ nvec_files <- list(RDS = paste0(input_path, "N_vectensis/Nvec_adult_sc_UMI_count
                    out_h5ad = "Nvec_cellFiltered.h5ad")
 
 # Spongilla lacustris files
-slac_files <- list(UMItable = paste0(input_path, "S_lacustris/GSE134912_Slac_spongilla_10x_count_matrix_edited.txt.gz"),
-                   cell_metadata = paste0(input_path, "S_lacustris/spongilla_cell_metadata_newNames.tsv"),
-                   out_h5ad = "Slac_cellFiltered.h5ad")
+# SPONGILLA LACUSTRIS FILE ARE NOW IN ../spongilla_remapping/
+# WE REMAPPED THE SINGLE-CELL DATASET AGAINST THE GENOME
+#slac_files <- list(UMItable = paste0(input_path, "S_lacustris/GSE134912_Slac_spongilla_10x_count_matrix_edited.txt.gz"),
+#                   cell_metadata = paste0(input_path, "S_lacustris/spongilla_cell_metadata_newNames.tsv"),
+#                   out_h5ad = "Slac_cellFiltered.h5ad")
 
 # Stilophora pistillata files
 spis_files <- list(RDS = paste0(input_path, "S_pistillata/Spis_adult_sc_UMI_counts.RDS"),
@@ -195,12 +197,17 @@ load(scil_files$Rdata)
 #   SetIdent(value = "seurat_clusters") %>%
 #   DimPlot2(pt.size = 2, cols = "light",
 #            label = TRUE, label.size = 3, label.color = "black", box = TRUE,
-#            theme = theme_umap_arrows())
+#            theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatium"), bold(" cell atlas")))),
+#                         theme_classic(), theme_umap_arrows()))
 # umap
 # 
-# ggsave("umap_sycon.png",
-#        umap, device = png,
-#        dpi = 300, height = 8, width = 8, units = ("in"), bg = 'white')
+# ggsave("intermediate_results/01_sycon_umaps/sycon_cellAtlas_complete.pdf",
+#        sycon_umap, device = cairo_pdf,
+#        width = 10, height = 8, dpi = 300, bg = "white")
+# ggsave("intermediate_results/01_sycon_umaps/sycon_cellAtlas_complete.png",
+#        sycon_umap, device = "png",
+#        width = 10, height = 8, dpi = 300, bg = "white")
+
 
 scil_S.object <- Seurat::CreateSeuratObject(counts = Seurat::GetAssayData(object = Sycon,
                                                                           assay = "RNA",
@@ -413,40 +420,40 @@ fromSeurat_toAnndata(nvec_afterFiltering$S.object,
 ########################
 
 # create the Seurat object
-slac_S.object <- read.table(file = gzfile(slac_files$UMItable),
-                            header = TRUE, sep = "\t") %>%
-  Seurat::CreateSeuratObject(project = "slac", min.cells = 0, min.features = 0,
-                             
-                             # add meta data with pre-computed cell clusters and annotations
-                             meta.data = read.table(slac_files$cell_metadata, header = TRUE, sep = "\t") %>%
-                               # select(cell, clusterID, cell_type, cell_type_newName) %>%
-                               mutate(cell = str_replace_all(cell, c('-' = '.'))) %>%
-                               column_to_rownames(var = "cell"))
+# slac_S.object <- read.table(file = gzfile(slac_files$UMItable),
+#                             header = TRUE, sep = "\t") %>%
+#   Seurat::CreateSeuratObject(project = "slac", min.cells = 0, min.features = 0,
+#                             
+#                              # add meta data with pre-computed cell clusters and annotations
+#                              meta.data = read.table(slac_files$cell_metadata, header = TRUE, sep = "\t") %>%
+#                                # select(cell, clusterID, cell_type, cell_type_newName) %>%
+#                                mutate(cell = str_replace_all(cell, c('-' = '.'))) %>%
+#                                column_to_rownames(var = "cell"))
 
-# plot features and counts before cell filtering
-slac_beforeFiltering <- plot_featuresVScounts(slac_S.object)
+# # plot features and counts before cell filtering
+# slac_beforeFiltering <- plot_featuresVScounts(slac_S.object)
 
-# plot features and counts after cell filtering
-slac_afterFiltering <- plot_featuresVScounts(slac_S.object,
-                                             nCount_min = 200, nCount_max = 40000,
-                                             nFeature_min = 200, nFeature_max = 6000)
+# # plot features and counts after cell filtering
+# slac_afterFiltering <- plot_featuresVScounts(slac_S.object,
+#                                              nCount_min = 200, nCount_max = 40000,
+#                                              nFeature_min = 200, nFeature_max = 6000)
 
-# convert SeuratObject to anndata file
-fromSeurat_toAnndata(slac_afterFiltering$S.object,
-                     output_path, slac_files$out_h5ad)
+# # convert SeuratObject to anndata file
+# fromSeurat_toAnndata(slac_afterFiltering$S.object,
+#                      output_path, slac_files$out_h5ad)
 
-# SCTransform data
-slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
-  SCTransform(verbose = TRUE)
+# # SCTransform data
+# slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
+#   SCTransform(verbose = TRUE)
 
-# dim reductions
-slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
-  RunPCA(verbose = TRUE)
-slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
-  RunUMAP(dims = 1:30, verbose = TRUE)
+# # dim reductions
+# slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
+#   RunPCA(verbose = TRUE)
+# slac_afterFiltering$S.object <- slac_afterFiltering$S.object %>%
+#   RunUMAP(dims = 1:30, verbose = TRUE)
 
-fromSeurat_toAnndata(slac_afterFiltering$S.object,
-                     output_path, "Slac_cellFiltered_SCT_PCA_UMAP.h5ad")
+# fromSeurat_toAnndata(slac_afterFiltering$S.object,
+#                      output_path, "Slac_cellFiltered_SCT_PCA_UMAP.h5ad")
 
 #########################
 #     S. PISTILLATA     #

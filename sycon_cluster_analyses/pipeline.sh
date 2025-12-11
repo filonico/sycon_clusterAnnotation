@@ -77,13 +77,10 @@ bash scripts/08_run_SAMap.sh Scil,Nvec,Spis,Hvul,Xesp both 05b_SAMap_recodedSyco
 ################################
 
 # get mapping scores
-for i in 05b_SAMap_recodedSyconClusters/*pkl; do python scripts/09_get_SAMap_mappingTables.py -p $i -o 05b_SAMap_recodedSyconClusters/01_mapping_scores -n 0; done
-
-# get gene pairs for Placozoa and Sycon cluster 14
-for i in 05b_SAMap_recodedSyconClusters/{HhonScil,HH23Scil,ScilTadh,ScilTrH2}*pkl; do python scripts/10_get_SAMap_genePairs.py -p $i -o 05b_SAMap_recodedSyconClusters/02_gene_pairs -c Scil_14 -t 0.2; done
+for i in 05_SAMap_porifera/*pkl; do python scripts/09_get_SAMap_mappingTables.py -p $i -o 05_SAMap_porifera/01_mapping_scores -n 0; done
 
 # get gene pairs for Placozoa and all Sycon clusters
-for i in 05b_SAMap_recodedSyconClusters/{HhonScil,HH23Scil,ScilTadh,ScilTrH2}*pkl; do python scripts/10_get_SAMap_genePairs.py -p $i -o 05b_SAMap_recodedSyconClusters/02_gene_pairs -t 0.2; done
+for i in 05_SAMap_porifera/*pkl; do python scripts/10_get_SAMap_genePairs.py -p $i -o 05_SAMap_porifera/02_gene_pairs -t 0.2; done
 
 
 ####################################

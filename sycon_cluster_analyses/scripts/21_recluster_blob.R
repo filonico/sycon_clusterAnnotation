@@ -3,7 +3,7 @@ library(SeuratExtend)
 library(tidyverse)
 library(ggvenn)
 
-setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/")
+setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses")
 
 #####################
 #     FUNCTIONS     #
@@ -108,22 +108,25 @@ scCustomize::as.anndata(x = Sycon_blobOnly, main_layer = "counts",
 
 # dimplot with the original cluster names
 dimplot_clusters_original <- Sycon_blobOnly %>%
-  SeuratExtend::DimPlot2(group.by = "seurat_clusters_original", pt.size = 1, cols = "auto",
+  SeuratExtend::DimPlot2(group.by = "seurat_clusters_original", pt.size = 1.5, cols = "auto",
                          label = TRUE, repel = TRUE, box = TRUE, label.color = "black",
-                         theme = list(labs(title = "Original clusters"),
-                                      theme_classic(),
-                                      theme_umap_arrows()))
+                         theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatum"), bold(" original clusters")))),
+                                      theme_classic(), theme_umap_arrows()))
   
 dimplot_clusters_original
   
 # dimplot with the re-clustered cluster names
 dimplot_clusters_new <- Sycon_blobOnly %>%
-  SeuratExtend::DimPlot2(group.by = "seurat_clusters_new", pt.size = 1,
+  SeuratExtend::DimPlot2(group.by = "seurat_clusters_new", pt.size = 1.5,
                          label = TRUE, repel = TRUE, box = TRUE, label.color = "black",
-                         theme = list(labs(title = "New clusters"),
-                                      theme_classic(),
-                                      NoAxes()))
+                         theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatum"), bold(" new clusters")))),
+                                      theme_classic(), NoAxes()))
 dimplot_clusters_new
+
+ggsave(plot = dimplot_clusters_new + theme_umap_arrows(), filename = "13_recluster_blob/dimplot_blobOnly_newClusters.pdf",
+       device = cairo_pdf, dpi = 300, height = 8, width = 10, units = ("in"), bg = 'white')
+ggsave(plot = dimplot_clusters_new + theme_umap_arrows(), filename = "13_recluster_blob/dimplot_blobOnly_newClusters.png",
+       device = "png", dpi = 300, height = 8, width = 10, units = ("in"), bg = 'white')
 
 # get the panel
 panel_clusters <- ggpubr::ggarrange(dimplot_clusters_original, dimplot_clusters_new,
@@ -132,9 +135,9 @@ panel_clusters <- ggpubr::ggarrange(dimplot_clusters_original, dimplot_clusters_
 panel_clusters
 
 ggsave(plot = panel_clusters, filename = "13_recluster_blob/dimplot_blobOnly_clusters_panel.pdf",
-       device = cairo_pdf, dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white')
+       device = cairo_pdf, dpi = 300, height = 8, width = 10*2, units = ("in"), bg = 'white')
 ggsave(plot = panel_clusters, filename = "13_recluster_blob/dimplot_blobOnly_clusters_panel.png",
-       device = "png", dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white')
+       device = "png", dpi = 300, height = 8, width = 10*2, units = ("in"), bg = 'white')
 
 # get the new cluster composition relative to the original ones
 new_cluster_composition <- Sycon_blobOnly[[]] %>%

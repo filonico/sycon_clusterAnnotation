@@ -237,6 +237,8 @@ if args.analysis == "stitched" or args.analysis == "both":
     with open(os.path.join(output_dir, "".join(species_to_process) + "_" + output_suffix + "_samap.pkl"), "wb") as file:
         pickle.dump(sam_mapping, file)
 
+    sam_mapping.samap.save_anndata(os.path.join(output_dir, "".join(species_to_process) + "_" + output_suffix + "_samap.h5ad"), "wb")
+
 # TRUE PAIRWISE ANALYSIS
 if args.analysis == "pairwise" or args.analysis == "both":
     analysis_pairs = [[x, y] for i, x in enumerate(species_to_process) for y in species_to_process[i + 1:]]
@@ -270,5 +272,7 @@ if args.analysis == "pairwise" or args.analysis == "both":
         # save the computed SAMAP object
         with open(os.path.join(output_dir, "".join(pair) + "_" + output_suffix + "_samap.pkl"), "wb") as file:
             pickle.dump(sam_mapping, file)
+
+        sam_mapping.samap.save_anndata(os.path.join(output_dir, "".join(pair) + "_" + output_suffix + "_samap.h5ad"), "wb")
 
         sys.stdout.flush()

@@ -1,6 +1,6 @@
 speciesID	species_full	color_SAMap	cellCluster_annotation_name
-Scil	Sycon ciliatum	#f881f7	seurat_clusters_new
-Slac	Spongilla lacustris	#FFC107	cell_type
+Scil	Sycon ciliatum	#f881f7	seurat_clusters
+Slac	Spongilla lacustris	#FFC107	seurat_clusters_2
 Aque	Amphimedon queenslandica	#42a4f9	cell_type
 Nvec	Nematostella vectensis	#fdbf6f	cell_type
 Spis	Stylophora pistillata	#fc9a38	cell_type

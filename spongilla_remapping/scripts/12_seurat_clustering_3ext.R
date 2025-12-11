@@ -78,7 +78,25 @@ slac_3ext_remapped <- slac_3ext_remapped %>%
   
 Idents(object = slac_3ext_remapped) <- "seurat_clusters_2"
 slac_3ext_remapped %>% saveRDS(file = "03_slac_remapped_clustering/slac_3ext_remapped_clustered.Rds")
+slac_3ext_remapped %>% saveRDS(file = "intermediate_results/01_spongilla_Sobjects_umaps/slac_3ext_remapped_clustered.Rds")
+slac_3ext_remapped %>% saveRDS(file = "intermediate_results/01_spongilla_Sobjects_umaps/slac_3ext_remapped_clustered.Rds.xz",
+                               compress = "xz")
+
 slac_3ext_remapped <- readRDS(file = "03_slac_remapped_clustering/slac_3ext_remapped_clustered.Rds")
+
+slac_3ext_remapped_umap <- slac_3ext_remapped %>%
+  SeuratExtend::DimPlot2(pt.size = 1.5, cols = "auto",
+                         label = TRUE, repel = TRUE, box = TRUE, label.color = "black",
+                         theme = list(labs(title = expression(paste(bolditalic("Spongilla lacustris"),
+                                                                    bold(" 3'-ext re-mapped cell atlas")))),
+                                      theme_classic(), theme_umap_arrows()))
+
+ggsave(plot = slac_3ext_remapped_umap,
+       filename = "intermediate_results/01_spongilla_Sobjects_umaps/01_plots/spongilla_cellAtlas_complete.pdf",
+       device = cairo_pdf, dpi = 300, height = 8, width = 10, units = ("in"), bg = 'white')
+ggsave(plot = slac_3ext_remapped_umap,
+       filename = "intermediate_results/01_spongilla_Sobjects_umaps/01_plots/spongilla_cellAtlas_complete.png",
+       device = "png", dpi = 300, height = 8, width = 10, units = ("in"), bg = 'white')
 
 markers_slac_3ext <- FindAllMarkers(slac_3ext_remapped, group.by = "seurat_clusters", only.pos = TRUE)
 
@@ -235,6 +253,12 @@ cluster_identity <- c("0" = "Archaeocytes_1",
                       "40" = "Cluster_40",
                       "41" = "Mesocytes",
                       "42" = "Cluster_42")
+
+as_tibble(cluster_identity) %>%
+  rownames_to_column(var = "cluster_ID") %>%
+  mutate(cluster_ID = as.character(as.numeric(cluster_ID) - 1)) %>%
+  write.table("intermediate_results/01_spongilla_Sobjects_umaps/cluster_identity.tsv", sep = "\t",
+              quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 slac_3ext_remapped[[]] <- slac_3ext_remapped[[]] %>%
   left_join(data.frame(cluster_identity) %>%

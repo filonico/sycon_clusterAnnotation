@@ -1,4 +1,4 @@
-setwd("/data/evassvis/fn76/sycon/sycon_clusterAnnotation/")
+setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses")
 
 library(tidyverse)
 library(ggsankeyfier)
@@ -33,7 +33,8 @@ tidyup_dataframe <- function(filename, threshold) {
     separate(target, into = c("next_x", "next_group"), sep = "_", extra = "merge") %>%
     
     # create a column with unique edge IDs (necessary for the sankey plot function)
-    mutate(edge_id = paste(pmin(group, next_group), pmax(group, next_group), sep = "_")) %>%
+    mutate(edge_id = paste(pmin(paste0(x, group), paste0(next_x, next_group)),
+                           pmax(paste0(x, group), paste0(next_x, next_group)), sep = "_")) %>%
     
     # tidy up cell cluster names
     mutate(edge_id = str_replace_all(edge_id, "_", "."),
@@ -67,14 +68,14 @@ plot_sankey <- function(dataframe, species, species_colors) {
   
   dataframe <- dataframe %>%
     mutate(connector = case_when(
-      x == "Sycon" ~ "from",              # If x is Sycon, connector is "from"
+      x == species[1] ~ "from",              # If x is Sycon, connector is "from"
       # x < next_x ~ "from",                # Default condition: x is less than next_x
       TRUE ~ "to"                         # Otherwise, connector is "to"
     ),
     
     # sort species names
     x_order = case_when(
-      x == "Sycon" ~ 1,          # If x is "Sycon", give it the first priority
+      x == species[1] ~ 1,          # If x is "Sycon", give it the first priority
       TRUE ~ 3                    # Otherwise, assign the third priority (for all other species)
     ),
     
@@ -179,16 +180,35 @@ get_mappingScore_distribution <- function(filename, experiment = "leiden3Cluster
 ############################
 
 ScilSlac_sankey <- fromTable_toSankey(
-  "05_SAMap/01_mapping_scores/ScilSlac_leiden3Clusters_0topCells_samapMappingTable.tsv",
-  "Scil", "Slac", "Sycon", "Spongilla", 0.2
+  "05_SAMap_porifera/01_mapping_scores/ScilSlac_leiden3Clusters_100topCells_samapMappingTable.tsv",
+  "Scil", "Slac", "Sycon", "Spongilla", 0.4
 )
-
 ScilSlac_sankey
 
+AqueScil_sankey <- fromTable_toSankey(
+  "05_SAMap_porifera/01_mapping_scores/AqueScil_leiden3Clusters_100topCells_samapMappingTable.tsv",
+  "Scil", "Aque", "Sycon", "Amphimedon", 0.4
+)
+AqueScil_sankey
+
+AqueSlac_sankey <- fromTable_toSankey(
+  "05_SAMap_porifera/01_mapping_scores/AqueSlac_leiden3Clusters_100topCells_samapMappingTable.tsv",
+  "Slac", "Aque", "Spongilla", "Amphimedon", 0.4
+)
+AqueSlac_sankey
+
+panel <- ggpubr::ggarrange(ScilSlac_sankey, AqueScil_sankey, AqueSlac_sankey,
+                  nrow = 3, common.legend = TRUE, legend = "right")
+panel
+
 # save the sankey
-ggsave("05_SAMap/01_mapping_scores/ScilSlac_sankey.pdf",
-       plot = ScilSlac_sankey, device = cairo_pdf,
-       dpi = 300, height = 7, width = 12, units = ("in"), bg = 'white')
+ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.pdf",
+     plot = panel, device = cairo_pdf,
+     dpi = 300, height = 14, width = 8, units = ("in"), bg = 'white')
+ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.png",
+       plot = panel, device = "png",
+       dpi = 300, height = 14, width = 8, units = ("in"), bg = 'white')
+
 
 ScilBlobSlac_sankey <- fromTable_toSankey(
   "13_recluster_blob/04_SAMap/ScSlac_leiden3Clusters_0topCells_samapMappingTable.tsv",

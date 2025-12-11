@@ -50,3 +50,5 @@ spongilla_remapping/.log/*
 spongilla_remapping/precompiled_softwares/peaks2utr/*
 spongilla_remapping/02c_cellranger_count/*
 spongilla_remapping/00_input/slac_genome*
+sycon_cluster_analyses/05_SAMap_porifera/*
+sycon_cluster_analyses/05*tar.gz
