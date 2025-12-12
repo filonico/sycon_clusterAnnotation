@@ -205,6 +205,12 @@ cluster_identity <- c("0" = "Uncertain_0",
                       "31" = "Uncertain_31",
                       "32" = "Oocytes/early_embryos")
 
+as_tibble(cluster_identity) %>%
+  rownames_to_column(var = "cluster_ID") %>%
+  mutate(cluster_ID = as.character(as.numeric(cluster_ID) - 1)) %>%
+  write.table("intermediate_results/01_sycon_Sobjects_umaps/cluster_identity.tsv", sep = "\t",
+              quote = FALSE, col.names = TRUE, row.names = FALSE)
+
 Sycon[[]] <- Sycon[[]] %>%
   left_join(data.frame(cluster_identity) %>%
               rownames_to_column(var = "cluster_n"),
