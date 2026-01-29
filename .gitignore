@@ -58,3 +58,5 @@ sycon_cluster_analyses/03_pairwise_diamond
 sycon_cluster_analyses/04_preprocessed_scRNAseqs
 sycon_cluster_analyses/00_input/Scil_protein.dmnd
 sycon_cluster_analyses/07_notableGenes_clusterAnnotation/*
+sycon_cluster_analyses/ESFS/*
+sycon_cluster_analyses/ESFS
