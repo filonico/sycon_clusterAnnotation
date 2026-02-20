@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-setwd("/data/evassvis/fn76/sycon_clusterAnnotation")
+setwd("/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses")
 
 library(Seurat)
 library(tidyverse)
@@ -12,6 +12,30 @@ library(DESeq2)
 #####################
 
 load("./00_input/Sycon_Seuratv4.Rdata")
+
+
+#####################
+#     FUNCTIONS     #
+#####################
+
+# function to get gene universe (i.e., genes expressed in at least one cell) and save to file
+get_gene_universe <- function(s.object, out_filename){
+  
+  s.object@assays$RNA$counts %>%
+    as_tibble(rownames = NA) %>%
+    rownames_to_column(var = "gene") %>%
+    mutate(sum = rowSums(across(where(is.numeric)))) %>%
+    filter(sum > 0) %>%
+    select(c("gene")) %>%
+    
+    write.table(file = out_filename,
+                col.names = FALSE, row.names = FALSE, quote = FALSE)
+}
+
+
+#####################
+#     GET GENES     #
+#####################
 
 # get DE genes per cluster
 # markers_deseq2 <- Sycon %>% FindAllMarkers(test.use = "DESeq2", verbose = TRUE, assay = "RNA", slot = "counts")
@@ -36,6 +60,9 @@ for (cluster_name in names(markers_list)) {
             )
 }
 
-# write the list of gene universe to a file
-writeLines(rownames(Sycon),
-           file.path("10_GO_enrichment", "geneUniverse.ls"))
+
+#############################
+#     GET GENE UNIVERSE     #
+#############################
+
+get_gene_universe(Sycon, file.path("10_GO_enrichment", "geneUniverse.ls"))

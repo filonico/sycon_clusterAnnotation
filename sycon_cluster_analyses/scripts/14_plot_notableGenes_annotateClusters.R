@@ -17,23 +17,30 @@ sycon_allMarkers_default <- FindAllMarkers(Sycon,
                                            only.pos = TRUE)
 
 
+###############################
+#     DEFINE PLOT THEMES      #
+###############################
+
+theme_for_UMAPS <- theme(
+  # aspect.ratio = 1,
+  plot.background = element_blank(), 
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  panel.grid = element_blank(),
+  plot.title = element_text(size = 13, hjust = 0.5, vjust = 1.75, face = "bold"),
+  axis.line = element_blank(),
+  axis.ticks = element_blank(),
+  axis.text = element_blank(),
+  axis.title = element_blank()
+)
+
 #######################
 #     GET MARKERS     #
 #######################
 
-# sycon_allMarkers_roc <- FindAllMarkers(Sycon,
-#                                        test.use = "roc",
-#                                        only.pos = TRUE)
-# 
-# sycon_allMarkers_roc %>%
-#   group_by(cluster) %>%
-#   dplyr::filter(avg_log2FC > 1) %>%
-#   slice_head(n = 5) %>%
-#   ungroup() -> top5_roc
-
 sycon_allMarkers_default %>%
   group_by(cluster) %>%
-  dplyr::filter(avg_log2FC > 1) %>%
+  filter(avg_log2FC > 1) %>%
   slice_head(n = 5) %>%
   ungroup() -> top5
 
@@ -41,12 +48,72 @@ heatmap <- DoHeatmap(Sycon, features = top5$gene) + NoLegend() +
   theme(axis.text = element_text(size = 5))
 heatmap
 
+top5 %>%
+  write.table(file = "07_notableGenes_clusterAnnotation/top5_markers_perCluster.tsv",
+              col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+
+
 ggsave("07_notableGenes_clusterAnnotation/top5_marker_heatmap.pdf",
        heatmap, device = cairo_pdf,
        height = 8*2, width = 10*2, dpi = 300, bg = "white")
 ggsave("07_notableGenes_clusterAnnotation/top5_marker_heatmap.png",
        heatmap, device = "png",
        height = 8*2, width = 10*2, dpi = 300, bg = "white")
+
+cluster_21_26_specific <- sycon_allMarkers_default %>%
+  filter(p_val_adj < 0.05) %>%
+  group_by(gene) %>%
+  mutate(cluster_agg = paste(unique(cluster), collapse = ",")) %>%
+  ungroup() %>%
+  filter(cluster_agg == "21,26") %>%
+  slice_max(order_by = avg_log2FC, n = 50)
+
+sycon_allMarkers_default %>%
+  filter(p_val_adj < 0.05) %>%
+  filter(gene == "g13150") %>%
+  group_by(gene) %>%
+  mutate(cluster_agg = paste(unique(cluster), collapse = ",")) %>%
+  ungroup()
+  
+DoHeatmap(Sycon, features = cluster_21_26_specific$gene)  
+
+uncertain_clusters <- cluster_identity %>% stack() %>%
+  filter(str_detect(values, "Uncertain")) %>%
+  pull(ind)
+
+uncertain_clusters_specific #<-
+  sycon_allMarkers_default %>%
+  filter(p_val_adj < 0.05) %>%
+  filter(cluster %in% c("1","7","11","16","21","23","25")) %>%
+  group_by(gene) %>%
+  mutate(n_clusters = n_distinct(cluster),
+         cluster_agg = paste(unique(cluster), collapse = ",")) %>%
+  ungroup() %>% View
+  # filter(n_cl1+7+11+16+21+23+25usters > 5) %>% filter(gene == "g7730")
+  # filter(cluster == "28",
+  #        avg_log2FC > 1) #%>%
+  View
+
+DoHeatmap(Sycon, features = uncertain_clusters_specific$gene)  
+
+cluster_5_specific <-
+  sycon_allMarkers_default %>%
+  filter(p_val_adj < 0.05) %>%
+  group_by(gene) %>%
+  mutate(n_clusters = n_distinct(cluster),
+         cluster_agg = paste(unique(cluster), collapse = ",")) %>%
+  ungroup() %>%
+  filter(cluster == "5") %>%
+  slice_max(order_by = avg_log2FC, n = 50)
+  
+DoHeatmap(Sycon, features = cluster_5_specific$gene)  
+
+sycon_allMarkers_default %>%
+  filter(p_val_adj < 0.05) %>%
+  write.table(file = "07_notableGenes_clusterAnnotation/all_markers_perCluster.tsv",
+              col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+
+  
 
 ###############################
 #     PLOT NOTABLE GENES      #
@@ -170,40 +237,45 @@ ggsave("07_notableGenes_clusterAnnotation/dotplot_notableGenes_sig.png",
 #     PLOT ANNOTATED_MARKERS     #
 ##################################
 
-
-cluster_identity <- c("0" = "Uncertain_0",
-                      "1" = "Unknown_1",
-                      "2" = "Uncertain_2",
-                      "3" = "Uncertain_3",
-                      "4" = "Uncertain_4",
-                      "5" = "Choanocytes-like_1",
+# if a cluster significantly expresses known markers, we give it a name
+# if a cluster maps with a spongilla cluster, we append the name 
+# if a cluster does not express any known marker, we call it "unknown"
+# if a cluster expresses known markers (but not significantly), we call it "uncertain"
+# if a cluster significantly expresses known markers but with multiple identities, we call it "uncertain"
+cluster_identity <- c("0" = "Uncertain_0", # uncertain identity (choanos + development)
+                      "1" = "Choanocytes_1",
+                      "2" = "Unknown_2",
+                      "3" = "Uncertain_3", # not significant
+                      "4" = "Uncertain_4", # not significant
+                      "5" = "Uncertain_5", # uncertain identity (choanos + development)
                       "6" = "Unknown_6",
-                      "7" = "Uncertain_7",
-                      "8" = "Uncertain_8",
-                      "9" = "Uncertain_9",
-                      "10" = "Uncertain_10",
-                      "11" = "Unknown_11",
-                      "12" = "Choanocytes-like_2",
-                      "13" = "Choanocytes-like_2",
+                      "7" = "Choanocytes_7",
+                      "8" = "Uncertain_8", # not significant
+                      "9" = "Uncertain_9", # not significant
+                      "10" = "Uncertain_10", # uncertain identity (choanos + development)
+                      "11" = "Choanocytes_11",
+                      "12" = "Choanocytes_12",
+                      "13" = "Choanocytes_13",
                       "14" = "Unknown_14",
-                      "15" = "Metabolocyte-like_choanocytes",
-                      "16" = "Unknown_16",
+                      "15" = "Metabolocytes-like_early_embryos",
+                      "16" = "Choanocytes_16",
                       "17" = "Oocytes/early_embryos",
                       "18" = "Unknown_18",
                       "19" = "Oocytes/early_embryos",
-                      "20" = "Uncertain_20",
+                      "20" = "Unknown_20",
                       "21" = "Myopeptidocyte-like_choanocytes",
-                      "22" = "Uncertain_22",
-                      "23" = "Unknown_23",
+                      "22" = "Uncertain_22", # not significant
+                      "23" = "Choanocytes_23",
                       "24" = "Oocytes/early_embryos",
-                      "25" = "Sclerocytes",
-                      "26" = "Choanocytes-like_2",
+                      "25" = "Sclerocytes-like_choanocytes",
+                      "26" = "Uncertain_26", # uncertain identity (choanos + development)
                       "27" = "Oocytes/early_embryos",
-                      "28" = "Uncertain_28",
-                      "29" = "Choanocytes-like_2",
-                      "30" = "Choanocytes-like_pinacocytes-like",
+                      "28" = "Uncertain_28", # not significant
+                      "29" = "Choanocytes_29",
+                      "30" = "Accessory_cells",
                       "31" = "Uncertain_31",
-                      "32" = "Oocytes/early_embryos")
+                      "32" = "Archaeocytes-like_stem_cells")
+                      
 
 as_tibble(cluster_identity) %>%
   rownames_to_column(var = "cluster_ID") %>%
@@ -216,40 +288,97 @@ Sycon[[]] <- Sycon[[]] %>%
               rownames_to_column(var = "cluster_n"),
             by = join_by("seurat_clusters" == "cluster_n"))
 
-umap <- Sycon %>%
-  SetIdent(value = "seurat_clusters") %>%
-  DimPlot2(pt.size = 2, cols = "light",
-           label = TRUE, label.size = 3, label.color = "black", box = TRUE,
-           theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatium"), bold(" cell atlas")))),
-                        theme_classic(), theme_umap_arrows(), NoLegend()))
-umap
+umap_clusters_raw <- DimPlot(Sycon, group.by = "seurat_clusters")
+umap_clusters_raw
 
-umap_annotated <- DimPlot(Sycon, group.by = "cluster_identity") +
-  theme_umap_arrows()
-umap_annotated
+umap_clusters <- umap_clusters_raw@data %>%
+  mutate(seurat_clusters = fct_infreq(as.factor(seurat_clusters))) %>%
+  mutate(seurat_clusters = fct_rev(seurat_clusters)) %>%
+  ggplot(aes(x = UMAP_1, y = UMAP_2, colour = seurat_clusters, label = seurat_clusters)) +
+  geom_point(size = 1) +
+  
+  geom_label(data = . %>%
+               group_by(seurat_clusters) %>%
+               summarise(UMAP_1 = median(UMAP_1),
+                         UMAP_2 = median(UMAP_2),
+                         .groups = "drop"),
+             aes(label = seurat_clusters),
+             size = 3, linewidth = 0.5,
+             text.color = "black", fill = alpha("white", 0.8)) +
+  
+  scale_color_manual(values = SeuratExtend::color_pro("default", n = 33,
+                                                      sort = "diff")) + 
+  
+  labs(x = "UMAP 1", y = "UMAP 2",
+       color = "Cell clusters") +
+  
+  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(12, "mm"),
+                                        y0 = unit(0, "mm"), y1 = unit(0, "mm"),
+                                        arrow = arrow(length = unit(2.5, "mm"),
+                                                      ends = "last", type = "open"),
+                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  
+  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(0, "mm"),
+                                        y0 = unit(0, "mm"), y1 = unit(12, "mm"),
+                                        arrow = arrow(length = unit(2.5, "mm"),
+                                                      ends = "last", type = "open"),
+                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  
+  annotation_custom(grob = textGrob(label = "UMAP 1",
+                                    x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
+                                    just = c(0, 1), gp = gpar(fontsize = 10))) +
+  
+  annotation_custom(grob = textGrob(label = "UMAP 2",
+                                    x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
+                                    just = c(0, 0), rot = 90, gp = gpar(fontsize = 10))) +
+  
+  coord_cartesian(clip = "off") +
+  
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none",
+        plot.margin = margin(5, 5, 10, 8, "mm")) +
+  theme_for_UMAPS
+umap_clusters
 
-umap_cell_types <- umap_annotated@data %>%
+umap_annotated_raw <- DimPlot(Sycon, group.by = "cluster_identity")
+
+umap_annotated <- umap_annotated_raw@data %>%
+  mutate(cluster_identity = str_replace_all(cluster_identity, "_", " "),
+         cluster_identity = str_replace_all(cluster_identity, " [0-9]+$", ""),
+         cluster_identity = str_replace(cluster_identity, "-like ", "-like\n"),
+         cluster_identity = str_replace(cluster_identity, "/", "/\n")) %>%
+  
   ggplot(aes(UMAP_1, UMAP_2)) +
   
-  geom_point(data = subset(umap_annotated@data, grepl("Unknown", cluster_identity)),
-             colour = "grey85", size = 2) +
-  geom_point(data = subset(umap_annotated@data, grepl("Uncertain", cluster_identity)),
-             colour = "grey40", size = 2) +
-  geom_point(data = subset(umap_annotated@data, !grepl("Unknown|Uncertain", cluster_identity)),
-             aes(colour = as.factor(cluster_identity)), size = 2) +
+  geom_point(data = . %>%
+               subset(grepl("Unknown", cluster_identity)),
+             colour = "grey85", size = 1) +
+  geom_point(data = . %>%
+               subset(grepl("Uncertain", cluster_identity)),
+             colour = "grey40", size = 1) +
+  geom_point(data = . %>%
+               subset(!grepl("Unknown|Uncertain", cluster_identity)),
+             aes(colour = as.factor(cluster_identity)), size = 1) +
   
-  # scale_colour_discrete(name = "",
+  scale_color_manual(values = SeuratExtend::color_iwh("default", n = 7)) + 
+  
+  guides(color = guide_legend(override.aes = list(size = 2),
+                              byrow = TRUE, position = "right",
+                              keyheight = 1, default.unit = "cm")) +
+  
   labs(colour = "Main cell types") +
   
-  theme_classic() +
-  theme_umap_arrows()
-umap_cell_types
+  theme_bw(base_size = 12) +
+  theme_for_UMAPS
+umap_annotated
 
-panel <- ggpubr::ggarrange(umap, umap_cell_types, ncol = 2, align= "hv")
+panel <- ggpubr::ggarrange(umap_clusters, umap_annotated, ncol = 2,
+                           widths = c(0.8, 1))
+panel
 
 ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.pdf",
        panel, device = cairo_pdf,
-       width = 20, height = 8, units = "in", dpi = 300, bg = "white")
+       width = 18/1.5, height = 8/1.5, units = "in", dpi = 300, bg = "white")
 ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.png",
        panel, device = "png",
-       width = 20, height = 8, units = "in", dpi = 300, bg = "white")
+       width = 18/1.5, height = 8/1.5, units = "in", dpi = 300, bg = "white")

@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-setwd("/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses/")
+setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/spongilla_remapping/")
 
 suppressMessages({library(tidyverse)
   library(hdWGCNA)
@@ -11,11 +11,9 @@ suppressMessages({library(tidyverse)
 #     LOAD INPUT     #
 ######################
 
-load("00_input/Sycon_Seuratv4.Rdata")
-# 
-# Sycon <- UpdateSeuratObject(Sycon)
-
-Sycon <- readRDS("12_hdWGCNA/Sycon_hdWGCNA.Rds")
+slac_3ext_remapped_clustered <- readRDS("03_slac_remapped_clustering/slac_3ext_remapped_clustered.Rds")
+ 
+slac_3ext_remapped_clustered <- UpdateSeuratObject(slac_3ext_remapped_clustered)
 
 
 #####################
@@ -25,21 +23,21 @@ Sycon <- readRDS("12_hdWGCNA/Sycon_hdWGCNA.Rds")
 plot_module_UMAP <- function(module_name) {
   
   # first get the coordinates of points in the umap
-  umap <- Sycon@reductions$umap@cell.embeddings %>%
+  umap <- slac_3ext_remapped_clustered@reductions$umap@cell.embeddings %>%
     as_tibble(rownames = NA) %>%
     rownames_to_column() %>%
     
     # then add information from meta data, including the score for each module
-    left_join(Sycon@meta.data %>% rownames_to_column()) %>%
-    select(rowname, UMAP_1, UMAP_2, all_of(module_name)) %>%
+    left_join(slac_3ext_remapped_clustered@meta.data %>% rownames_to_column()) %>%
+    select(rowname, umap_1, umap_2, all_of(module_name)) %>%
     
     # pivot data longer
-    pivot_longer(-c(rowname, UMAP_1, UMAP_2), names_to = "module", values_to = "expr") %>%
+    pivot_longer(-c(rowname, umap_1, umap_2), names_to = "module", values_to = "expr") %>%
     arrange(expr) %>%
     # group_by(module) %>%
     
     # plot data
-    ggplot(aes(UMAP_1, UMAP_2)) +
+    ggplot(aes(umap_1, umap_2)) +
     geom_point(aes(col = expr),
                # alpha = 0.5, 
                size = 0.7
@@ -73,45 +71,46 @@ plot_module_UMAP <- function(module_name) {
 #     hdWGCNA with standard pipeline     #
 ##########################################
 
-DefaultAssay(Sycon) <- "SCT"
-Sycon
+DefaultAssay(slac_3ext_remapped_clustered) <- "SCT"
+slac_3ext_remapped_clustered
 
 # standard hdWGCNA pipeline
 # pipeline with variable features is better than the other ("fraction")
 # it retrieves better defined clusters
-Sycon <- SetupForWGCNA(Sycon,
-                       gene_select = "variable",
-                       wgcna_name = "RNA_variableFeatures")
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  SetupForWGCNA(gene_select = "variable",
+                wgcna_name = "RNA_variableFeatures")
 
-# Sycon <- SetupForWGCNA(Sycon,
-#                        gene_select = "fraction",
-#                        fraction = 0.05,
-#                        wgcna_name = "RNA_fraction")
-
-Sycon@misc$active_wgcna <- "RNA_variableFeatures"
+slac_3ext_remapped_clustered@misc$active_wgcna <- "RNA_variableFeatures"
 
 # compute metacells by splitting both by samples and seurat clusters
 # reduce number of cells to consider a cluster and the number of overlapping cells to 10
-# otherwise it get rids of cluster 28..32
-Sycon <- MetacellsByGroups(seurat_obj = Sycon,
-                           group.by = c("orig.ident", "seurat_clusters"),
-                           ident.group = "seurat_clusters",
-                           min_cells = 10, k = 10,
-                           assay = "RNA",
-                           wgcna_name = "RNA_variableFeatures")
+# let's not group cells by sample, as the different runs do not need integration 
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  MetacellsByGroups(group.by = "seurat_clusters_2",
+                    # group.by = c("sample", "seurat_clusters_2"),
+                    ident.group = "seurat_clusters_2",
+                    min_cells = 10, k = 10,
+                    assay = "RNA",
+                    wgcna_name = "RNA_variableFeatures")
 
-Sycon <- NormalizeMetacells(Sycon)
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  NormalizeMetacells()
 
 # it is important to use the RNA assay for DGE analysis, in order to use raw counts
 # instead of normalized and/or integrated matrices
-Sycon <- SetDatExpr(Sycon,
-                    group_name = levels(Sycon[[]]$seurat_clusters),
-                    group.by = "seurat_clusters",
-                    assay = "RNA",
-                    layer = "data")
+# NB: clusters 40, 41, and 42 are excluded because they didn't meet inclusion thresholds of MetacellsByGroup
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  SetDatExpr(group_name = levels(slac_3ext_remapped_clustered[[]]$seurat_clusters_2),
+             # group_name = levels(slac_3ext_remapped_clustered[[]]$seurat_clusters_2) %>%
+             #   .[! . %in% c("40", "41", "42")],
+             group.by = "seurat_clusters_2",
+             assay = "RNA",
+             layer = "data")
 
 # test different soft powers
-Sycon <- TestSoftPowers(Sycon)
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  TestSoftPowers()
 
 # # plot the results
 # plotSoftPower_list <- PlotSoftPowers(Sycon)
@@ -120,38 +119,44 @@ Sycon <- TestSoftPowers(Sycon)
 # patchwork::wrap_plots(plotSoftPower_list, ncol = 2)
 
 # construct co-expression network
-Sycon <- ConstructNetwork(Sycon,
-                          tom_outdir = "12_hdWGCNA/01_RNA_assay/",
-                          tom_name = "RNA_variableFeatures", overwrite_tom = TRUE)
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  ConstructNetwork(tom_outdir = "05_hdWGCNA/01_RNA_assay/",
+                   tom_name = "RNA_variableFeatures_notBySample", overwrite_tom = TRUE)
+
+# save.image("./tmp_slac_hdwgcna.Rdata")
 
 # PlotDendrogram(Sycon)
 
 # this is necessary to include gorup by samples  in the next step
-Sycon <- ScaleData(Sycon,
-                   features = VariableFeatures(Sycon))
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  ScaleData(features = VariableFeatures(slac_3ext_remapped_clustered))
 
 # compute all MEs in the full single-cell dataset
-Sycon <- ModuleEigengenes(Sycon,
-                          group.by.vars = "orig.ident")
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  ModuleEigengenes(
+    # group.by.vars = "sample"
+    )
 
 # compute eigengene-based connectivity (kME)
-Sycon <- ModuleConnectivity(Sycon,
-                            group.by = "seurat_clusters")
+slac_3ext_remapped_clustered <- slac_3ext_remapped_clustered %>%
+  ModuleConnectivity(group.by = "seurat_clusters_2")
 
 # make a featureplot of hMEs for each module
 # here, plotted ranges are symmetrical (as hdWGCNA default settings)
-RNA_featurePlot_list <- ModuleFeaturePlot(Sycon,
-                                          features = "hMEs",
-                                          order = TRUE)
+RNA_featurePlot_list <- slac_3ext_remapped_clustered %>%
+  ModuleFeaturePlot(features = "hMEs",
+                    order = TRUE)
 
 # plot patchworked plots
 patchwork::wrap_plots(RNA_featurePlot_list,
                       ncol = 3)
 
 # extract hME values and add them to meta data
-hMEs <- Sycon %>%
-  GetMEs(harmonized = TRUE)
-Sycon@meta.data <- cbind(Sycon@meta.data, hMEs)
+hMEs <- slac_3ext_remapped_clustered %>%
+  GetMEs(
+    # harmonized = TRUE
+    )
+slac_3ext_remapped_clustered@meta.data <- cbind(slac_3ext_remapped_clustered@meta.data, hMEs)
 
 # create a custom UMAP for each module
 # here, plotted ranges are not corrected, thus not symmetrical
@@ -164,34 +169,35 @@ for (i in names(RNA_featurePlot_list)) {
 umaps <- print(patchwork::wrap_plots(RNA_umap_list, ncol = 3))
 umaps
 
-ggsave("12_hdWGCNA/01_RNA_assay/gene_module_umaps.pdf",
+ggsave("05_hdWGCNA/01_RNA_assay/gene_module_umaps.pdf",
        umaps,  device = cairo_pdf,
-       dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white')
+       dpi = 300, height = 4, width = 12, units = ("in"), bg = 'white')
 
-ggsave("12_hdWGCNA/01_RNA_assay/gene_module_umaps.png",
+ggsave("05_hdWGCNA/01_RNA_assay/gene_module_umaps.png",
        umaps,  device = "png",
-       dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white')
+       dpi = 300, height = 4, width = 12, units = ("in"), bg = 'white')
 
 # get the list of genes per module
-gene_list <- Sycon@misc$RNA_variableFeatures$wgcna_modules %>%
+gene_list <- slac_3ext_remapped_clustered@misc$RNA_variableFeatures$wgcna_modules %>%
   group_by(module) %>%
   summarise(genes = list(gene_name), .groups = "drop") %>%
   { setNames(.$genes, .$module) }
 
 # write the list of genes per module to separate files
 for (module in names(gene_list)) {
-  file_path <- file.path("12_hdWGCNA/01_RNA_assay/", paste0(module, "_RNA_module_genes.ls"))
+  file_path <- file.path("05_hdWGCNA/01_RNA_assay/", paste0(module, "_RNA_module_genes.ls"))
   writeLines(gene_list[[module]],
              file_path)
 }
 
-saveRDS(Sycon, "12_hdWGCNA/Sycon_hdWGCNA.Rds")
+saveRDS(slac_3ext_remapped_clustered, "05_hdWGCNA/slac_3ext_remapped_clustered_hdWGCNA.Rds")
 
-RNA_modules <- GetModules(Sycon)
+RNA_modules <- slac_3ext_remapped_clustered %>%
+  GetModules()
 RNA_mods <- levels(RNA_modules$module); mods <- mods[mods != 'grey']
 
-RNA_dotplot <- Sycon %>%
-  DotPlot(features = RNA_mods, group.by = 'seurat_clusters')
+RNA_dotplot <- slac_3ext_remapped_clustered %>%
+  DotPlot(features = RNA_mods, group.by = 'seurat_clusters_2')
 
 
 RNA_dotplot_custom <- RNA_dotplot$data %>%
