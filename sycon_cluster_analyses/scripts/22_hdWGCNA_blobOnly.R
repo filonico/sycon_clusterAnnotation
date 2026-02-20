@@ -14,6 +14,8 @@ suppressMessages({library(tidyverse)
 Sycon_blobOnly <- readRDS("13_recluster_blob/Sycon_blobOnly.Rds") %>%
   UpdateSeuratObject()
 
+DimPlot(Sycon_blobOnly)
+
 
 #####################
 #     FUNCTIONS     #

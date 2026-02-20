@@ -10,7 +10,8 @@ setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_clu
 #####################
 
 get_markers_and_save <- function(seurat_object, group, output_dir) {
-  markers <- seurat_object %>% FindAllMarkers(group.by = group, only.pos = TRUE)
+  markers <- seurat_object %>%
+    FindAllMarkers(group.by = group, only.pos = TRUE)
   
   markers_list <- markers %>%
     filter(avg_log2FC > 0) %>%
@@ -50,6 +51,9 @@ get_gene_universe <- function(seurat_object, out_filename){
 
 load("00_input/Sycon_Seuratv4.Rdata")
 
+Sycon <- Sycon %>%
+  UpdateSeuratObject()
+
 
 ######################
 #     RE-CLUSTER     #
@@ -57,32 +61,43 @@ load("00_input/Sycon_Seuratv4.Rdata")
 
 DefaultAssay(Sycon) <- "RNA"
 
-Sycon %>%
-  SeuratExtend::DimPlot2(group.by = "seurat_clusters", label = TRUE, repel = TRUE,
-                         theme = theme_umap_arrows())
-
+# define list of lcusters to remove
 clusters_to_remove <- c("15", "17", "19", "21", "24", "26", "27", "25", "30", "32")
 
+# retain only RNA assay and remove cell belonging to above clusters
 Sycon_blobOnly <- Sycon %>%
   UpdateSeuratObject() %>%
   DietSeurat(assays = "RNA") %>%
-  subset(!(seurat_clusters %in% clusters_to_remove)) %>%
-  SCTransform()
+  subset(!(seurat_clusters %in% clusters_to_remove)) 
+
+# split object back into individual batches, to perform integration
+Sycon_blobOnly[["RNA"]] <- split(Sycon_blobOnly[["RNA"]],
+                                 f = Sycon_blobOnly$orig.ident)
 
 Sycon_blobOnly <- Sycon_blobOnly %>%
-  RunPCA()
+  SCTransform()
+
+# Sycon_blobOnly <- Sycon_blobOnly %>%
+#   RunPCA()
+# 
+# Sycon_blobOnly <- Sycon_blobOnly %>%
+#   RunUMAP(dims = 1:30)
+# 
+# DimPlot(Sycon_blobOnly, group.by = "orig.ident")
+
+Sycon_blobOnly <- Sycon_blobOnly %>%
+  IntegrateLayers(method = HarmonyIntegration,
+                  normalization.method = "SCT", verbose = TRUE)
 
 ElbowPlot(Sycon_blobOnly, ndims = 50) %>%
   ggsave(plot = ., filename = "13_recluster_blob/elbowplot.pdf", device = cairo_pdf)
 
 Sycon_blobOnly <- Sycon_blobOnly %>%
-  RunUMAP(dims = 1:30)
-
-Sycon_blobOnly <- Sycon_blobOnly %>%
-  FindNeighbors(dims = 1:30) %>%
+  FindNeighbors(reduction = "harmony", dims = 1:30) %>%
   FindClusters()
 
-Sycon_blobOnly %>% DimPlot()
+Sycon_blobOnly <- Sycon_blobOnly %>%
+  RunUMAP(dims = 1:30, reduction = "harmony")
 
 Sycon_blobOnly@meta.data <- Sycon_blobOnly@meta.data %>%
   rownames_to_column() %>%
@@ -93,6 +108,10 @@ Sycon_blobOnly@meta.data <- Sycon_blobOnly@meta.data %>%
             # keep = FALSE,
             suffix = c("_new", "_original")) %>%
   column_to_rownames(var = "rowname")
+
+DimPlot(Sycon_blobOnly, group.by = c("orig.ident", "seurat_clusters_new", "seurat_clusters_original"))
+
+Sycon_blobOnly <- PrepSCTFindMarkers(Sycon_blobOnly)
 
 saveRDS(Sycon_blobOnly, file = "13_recluster_blob/Sycon_blobOnly.Rds")
 Sycon_blobOnly <- readRDS("13_recluster_blob/Sycon_blobOnly.Rds")
@@ -108,7 +127,8 @@ scCustomize::as.anndata(x = Sycon_blobOnly, main_layer = "counts",
 
 # dimplot with the original cluster names
 dimplot_clusters_original <- Sycon_blobOnly %>%
-  SeuratExtend::DimPlot2(group.by = "seurat_clusters_original", pt.size = 1.5, cols = "auto",
+  SeuratExtend::DimPlot2(reduction = "umap", group.by = "seurat_clusters_original",
+                         pt.size = 1.5, cols = "auto",
                          label = TRUE, repel = TRUE, box = TRUE, label.color = "black",
                          theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatum"), bold(" original clusters")))),
                                       theme_classic(), theme_umap_arrows()))
@@ -117,7 +137,8 @@ dimplot_clusters_original
   
 # dimplot with the re-clustered cluster names
 dimplot_clusters_new <- Sycon_blobOnly %>%
-  SeuratExtend::DimPlot2(group.by = "seurat_clusters_new", pt.size = 1.5,
+  SeuratExtend::DimPlot2(reduction = "umap", group.by = "seurat_clusters_new",
+                         pt.size = 1.5,
                          label = TRUE, repel = TRUE, box = TRUE, label.color = "black",
                          theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatum"), bold(" new clusters")))),
                                       theme_classic(), NoAxes()))
@@ -146,10 +167,13 @@ new_cluster_composition <- Sycon_blobOnly[[]] %>%
   count()
 
 # plot the cluster composition
-cluster_composition_seurat_style <- ClusterDistrBar(Sycon_blobOnly$seurat_clusters_new, Sycon_blobOnly$seurat_clusters_original, percent = FALSE)
+cluster_composition_seurat_style <- ClusterDistrBar(Sycon_blobOnly$seurat_clusters_new,
+                                                    Sycon_blobOnly$seurat_clusters_original,
+                                                    percent = FALSE)
 cluster_composition_seurat_style
 
-color_palette <- ggplot_build(cluster_composition_seurat_style)$data[[1]]$fill %>% unique()
+color_palette <- ggplot_build(cluster_composition_seurat_style)$data[[1]]$fill %>%
+  unique()
 
 new_cluster_composition_col <- new_cluster_composition %>%
   ggplot(aes(x = n, y = seurat_clusters_new, fill = seurat_clusters_original)) +
@@ -240,6 +264,7 @@ markers_blobOnly_newClusters <- get_markers_and_save(Sycon_blobOnly,
 markers_venn <- ggvenn::ggvenn(list("Original cluster\nmarkers" = markers_blobOnly_originalClusters$gene,
                                     "New cluster\nmarkers" = markers_blobOnly_newClusters$gene),
                                auto_scale = TRUE)
+markers_venn
 
 ggsave("13_recluster_blob/venn_markers.pdf",
        markers_venn, device = cairo_pdf,
@@ -247,6 +272,7 @@ ggsave("13_recluster_blob/venn_markers.pdf",
 ggsave("13_recluster_blob/venn_markers.png",
        markers_venn, device = "png",
        dpi = 300, height = 6, width = 6, units = ("in"), bg = 'white')
+
 
 #############################
 #     GET GENE UNIVERSE     #
