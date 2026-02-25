@@ -136,6 +136,11 @@ SeuratExtend::DotPlot2(slac_3ext_remapped, #group.by = "seurat_clusters_2",
 spongilla_3ext_allMarkers <- FindAllMarkers(slac_3ext_remapped,
                                             only.pos = TRUE)
 
+spongilla_3ext_allMarkers %>%
+  filter(p_val_adj < 0.05) %>%
+  write.table(file = "03_slac_remapped_clustering/all_markers_perCluster.tsv",
+              col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+
 top_markers_logFC1 <- spongilla_3ext_allMarkers %>%
   group_by(cluster) %>%
   dplyr::filter(avg_log2FC > 1) %>%

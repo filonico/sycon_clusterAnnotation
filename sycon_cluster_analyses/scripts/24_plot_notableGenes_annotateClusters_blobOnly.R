@@ -103,9 +103,7 @@ dotplot_notable_genes <- p$data %>%
                                   "22", "20", "28", "30", "31",
                                   "0", "2", "3", "4", "5", "6", "8", "9", "10", "14", "18"))) %>%
   filter(pct > 0) %>%
-  # semi_join(sycon_allMarkers_default %>%
-  #             filter(p_val_adj >= 0.05),
-  #           by = c("Var1" = "gene", "Var2" = "cluster")) %>%
+  
   semi_join(sycon_blobOnly_allMarkers_default,
             by = c("Var1" = "gene", "Var2" = "cluster")) %>%
   
@@ -126,9 +124,9 @@ dotplot_notable_genes <- p$data %>%
   
   theme(strip.placement = "outside",
         strip.background = element_blank(),
-        strip.text = element_text(face = "bold", size = 8),
+        strip.text = element_text(face = "bold", size = 6),
         strip.clip = "off",
-        axis.text.x = element_text(angle = 45, hjust = 0, size = 7),
+        axis.text.x = element_text(angle = 45, hjust = 0, size = 5),
         panel.border = element_rect(color = "#4f4f4f", fill = NA, linewidth = 0.8),
         panel.background = element_blank(),
         panel.grid = element_line(color = "#dbdbdb"))
@@ -137,10 +135,10 @@ dotplot_notable_genes
 
 ggsave("13_recluster_blob/06_notableGenes_clusterAnnotation/dotplot_notableGenes.pdf",
        dotplot_notable_genes, device = cairo_pdf,
-       dpi = 300, height = 8, width = 20, units = ("in"), bg = 'white')
+       dpi = 300, height = 4*1.2, width = 6*1.2, units = ("in"), bg = 'white')
 ggsave("13_recluster_blob/06_notableGenes_clusterAnnotation/dotplot_notableGenes.png",
        dotplot_notable_genes, device = "png",
-       dpi = 300, height = 8, width = 20, units = ("in"), bg = 'white')
+       dpi = 300, height = 4*1.2, width = 6*1.2, units = ("in"), bg = 'white')
 
 dotplot_notable_genes_sig <- p$data %>%
   mutate(Var2 = factor(Var2,

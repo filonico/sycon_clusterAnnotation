@@ -2,8 +2,10 @@ library(Seurat)
 library(SeuratExtend)
 library(tidyverse)
 library(ggvenn)
+library(grid)
 
 setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses")
+
 
 #####################
 #     FUNCTIONS     #
@@ -43,6 +45,24 @@ get_gene_universe <- function(seurat_object, out_filename){
     write.table(file = out_filename,
                 col.names = FALSE, row.names = FALSE, quote = FALSE)
 }
+
+
+###############################
+#     DEFINE PLOT THEMES      #
+###############################
+
+theme_for_UMAPS <- theme(
+  # aspect.ratio = 1,
+  plot.background = element_blank(), 
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  panel.grid = element_blank(),
+  plot.title = element_text(size = 13, hjust = 0.5, vjust = 1.75, face = "bold"),
+  axis.line = element_blank(),
+  axis.ticks = element_blank(),
+  axis.text = element_blank(),
+  axis.title = element_blank()
+)
 
 
 #################
@@ -114,7 +134,6 @@ DimPlot(Sycon_blobOnly, group.by = c("orig.ident", "seurat_clusters_new", "seura
 Sycon_blobOnly <- PrepSCTFindMarkers(Sycon_blobOnly)
 
 saveRDS(Sycon_blobOnly, file = "13_recluster_blob/Sycon_blobOnly.Rds")
-Sycon_blobOnly <- readRDS("13_recluster_blob/Sycon_blobOnly.Rds")
 
 scCustomize::as.anndata(x = Sycon_blobOnly, main_layer = "counts",
                         other_layers = NULL, file_path = "13_recluster_blob/04_SAMap/",
@@ -125,29 +144,121 @@ scCustomize::as.anndata(x = Sycon_blobOnly, main_layer = "counts",
 #     DIM PLOTS     #
 #####################
 
+Sycon_blobOnly <- readRDS("13_recluster_blob/Sycon_blobOnly.Rds")
+
 # dimplot with the original cluster names
-dimplot_clusters_original <- Sycon_blobOnly %>%
-  SeuratExtend::DimPlot2(reduction = "umap", group.by = "seurat_clusters_original",
-                         pt.size = 1.5, cols = "auto",
-                         label = TRUE, repel = TRUE, box = TRUE, label.color = "black",
-                         theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatum"), bold(" original clusters")))),
-                                      theme_classic(), theme_umap_arrows()))
+dimplot_clusters_original_raw <- DimPlot(Sycon_blobOnly, group.by = "seurat_clusters_original")
   
+dimplot_clusters_original <- dimplot_clusters_original_raw@data %>%
+  mutate(seurat_clusters_original = fct_infreq(as.factor(seurat_clusters_original))) %>%
+  mutate(seurat_clusters_original = fct_rev(seurat_clusters_original)) %>%
+  ggplot(aes(x = umap_1, y = umap_2,
+             colour = seurat_clusters_original, label = seurat_clusters_original)) +
+  geom_point(size = 1) +
+  
+  geom_label(data = . %>%
+               group_by(seurat_clusters_original) %>%
+               summarise(umap_1 = median(umap_1),
+                         umap_2 = median(umap_2),
+                         .groups = "drop"),
+             aes(label = seurat_clusters_original),
+             size = 2.5, linewidth = 0.5,
+             text.color = "black", fill = alpha("white", 0.8)) +
+  
+  scale_color_manual(values = SeuratExtend::color_pro("default", n = 23,
+                                                      sort = "diff")) + 
+  
+  labs(title = "Central blob (original clusters)",
+       x = "UMAP 1", y = "UMAP 2",
+       color = "Original clusters") +
+  
+  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(12, "mm"),
+                                        y0 = unit(0, "mm"), y1 = unit(0, "mm"),
+                                        arrow = arrow(length = unit(2.5, "mm"),
+                                                      ends = "last", type = "open"),
+                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  
+  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(0, "mm"),
+                                        y0 = unit(0, "mm"), y1 = unit(12, "mm"),
+                                        arrow = arrow(length = unit(2.5, "mm"),
+                                                      ends = "last", type = "open"),
+                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  
+  annotation_custom(grob = textGrob(label = "UMAP 1",
+                                    x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
+                                    just = c(0, 1), gp = gpar(fontsize = 10))) +
+  
+  annotation_custom(grob = textGrob(label = "UMAP 2",
+                                    x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
+                                    just = c(0, 0), rot = 90, gp = gpar(fontsize = 10))) +
+  
+  coord_cartesian(clip = "off") +
+  
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none",
+        plot.margin = margin(5, 5, 10, 8, "mm")) +
+  theme_for_UMAPS
 dimplot_clusters_original
   
 # dimplot with the re-clustered cluster names
-dimplot_clusters_new <- Sycon_blobOnly %>%
-  SeuratExtend::DimPlot2(reduction = "umap", group.by = "seurat_clusters_new",
-                         pt.size = 1.5,
-                         label = TRUE, repel = TRUE, box = TRUE, label.color = "black",
-                         theme = list(labs(title = expression(paste(bolditalic("Sycon ciliatum"), bold(" new clusters")))),
-                                      theme_classic(), NoAxes()))
+dimplot_clusters_new_raw <- DimPlot(Sycon_blobOnly, group.by = "seurat_clusters_new")
+
+dimplot_clusters_new <- dimplot_clusters_new_raw@data %>%
+  mutate(seurat_clusters_new = fct_infreq(as.factor(seurat_clusters_new))) %>%
+  mutate(seurat_clusters_new = fct_rev(seurat_clusters_new)) %>%
+  ggplot(aes(x = umap_1, y = umap_2,
+             colour = seurat_clusters_new, label = seurat_clusters_new)) +
+  geom_point(size = 1) +
+  
+  geom_label(data = . %>%
+               group_by(seurat_clusters_new) %>%
+               summarise(umap_1 = median(umap_1),
+                         umap_2 = median(umap_2),
+                         .groups = "drop"),
+             aes(label = seurat_clusters_new),
+             size = 2.5, linewidth = 0.5,
+             text.color = "black", fill = alpha("white", 0.8)) +
+  
+  scale_color_manual(values = SeuratExtend::color_pro("default", n = 17,
+                                                      sort = "diff")) + 
+  
+  labs(title = "Central blob (reclustered)", x = "UMAP 1", y = "UMAP 2",
+       color = "New clusters") +
+  
+  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(12, "mm"),
+                                        y0 = unit(0, "mm"), y1 = unit(0, "mm"),
+                                        arrow = arrow(length = unit(2.5, "mm"),
+                                                      ends = "last", type = "open"),
+                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  
+  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(0, "mm"),
+                                        y0 = unit(0, "mm"), y1 = unit(12, "mm"),
+                                        arrow = arrow(length = unit(2.5, "mm"),
+                                                      ends = "last", type = "open"),
+                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  
+  annotation_custom(grob = textGrob(label = "UMAP 1",
+                                    x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
+                                    just = c(0, 1), gp = gpar(fontsize = 10))) +
+  
+  annotation_custom(grob = textGrob(label = "UMAP 2",
+                                    x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
+                                    just = c(0, 0), rot = 90, gp = gpar(fontsize = 10))) +
+  
+  coord_cartesian(clip = "off") +
+  
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none",
+        plot.margin = margin(5, 5, 10, 8, "mm")) +
+  theme_for_UMAPS
 dimplot_clusters_new
 
-ggsave(plot = dimplot_clusters_new + theme_umap_arrows(), filename = "13_recluster_blob/dimplot_blobOnly_newClusters.pdf",
-       device = cairo_pdf, dpi = 300, height = 8, width = 10, units = ("in"), bg = 'white')
-ggsave(plot = dimplot_clusters_new + theme_umap_arrows(), filename = "13_recluster_blob/dimplot_blobOnly_newClusters.png",
-       device = "png", dpi = 300, height = 8, width = 10, units = ("in"), bg = 'white')
+ggsave(filename = "13_recluster_blob/dimplot_blobOnly_newClusters.pdf",
+       dimplot_clusters_new, device = cairo_pdf,
+       dpi = 300, height = 8/1.5, width = 8/1.5, units = ("in"), bg = 'white')
+ggsave(filename = "13_recluster_blob/dimplot_blobOnly_newClusters.png",
+       dimplot_clusters_new, device = "png",
+       dpi = 300, height = 8/1.5, width = 8/1.5, units = ("in"), bg = 'white')
 
 # get the panel
 panel_clusters <- ggpubr::ggarrange(dimplot_clusters_original, dimplot_clusters_new,
@@ -155,10 +266,17 @@ panel_clusters <- ggpubr::ggarrange(dimplot_clusters_original, dimplot_clusters_
 
 panel_clusters
 
-ggsave(plot = panel_clusters, filename = "13_recluster_blob/dimplot_blobOnly_clusters_panel.pdf",
-       device = cairo_pdf, dpi = 300, height = 8, width = 10*2, units = ("in"), bg = 'white')
-ggsave(plot = panel_clusters, filename = "13_recluster_blob/dimplot_blobOnly_clusters_panel.png",
-       device = "png", dpi = 300, height = 8, width = 10*2, units = ("in"), bg = 'white')
+ggsave("13_recluster_blob/dimplot_blobOnly_clusters_panel.pdf",
+       panel_clusters, device = cairo_pdf,
+       dpi = 300, height = 8/1.5, width = 16/1.5, units = ("in"), bg = 'white')
+ggsave("13_recluster_blob/dimplot_blobOnly_clusters_panel.png",
+       panel_clusters, device = "png",
+       dpi = 300, height = 8/1.5, width = 16/1.5, units = ("in"), bg = 'white')
+
+
+################################
+#      CLUSTER COMPOSITION     #
+################################
 
 # get the new cluster composition relative to the original ones
 new_cluster_composition <- Sycon_blobOnly[[]] %>%

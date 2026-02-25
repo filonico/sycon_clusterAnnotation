@@ -34,6 +34,7 @@ theme_for_UMAPS <- theme(
   axis.title = element_blank()
 )
 
+
 #######################
 #     GET MARKERS     #
 #######################
@@ -135,7 +136,8 @@ notable_genes <- list(
   "Totipotency/\ngermline/\noocytes" = c("g3867","g9458", "g12083", "g11831", "g3684", "g12115", "g6724","g12152", "g3613"),
   "Elav" = c("g7460"),
   "Gata" = c("g2248"),
-  "Gli" = c("g8905")
+  "Gli" = c("g8905"),
+  "HD\ngenes" = c("g8932","g8162","g9066","g9084","g8884","g6644","g8884","g6644")
 )
 
 p <- Sycon %>% SeuratExtend::DotPlot2(features = notable_genes, flip = TRUE)
@@ -303,7 +305,7 @@ umap_clusters <- umap_clusters_raw@data %>%
                          UMAP_2 = median(UMAP_2),
                          .groups = "drop"),
              aes(label = seurat_clusters),
-             size = 3, linewidth = 0.5,
+             size = 2.5, linewidth = 0.5,
              text.color = "black", fill = alpha("white", 0.8)) +
   
   scale_color_manual(values = SeuratExtend::color_pro("default", n = 33,
@@ -352,15 +354,16 @@ umap_annotated <- umap_annotated_raw@data %>%
   
   geom_point(data = . %>%
                subset(grepl("Unknown", cluster_identity)),
-             colour = "grey85", size = 1) +
+             aes(color = "Unknown"), size = 1) +
   geom_point(data = . %>%
                subset(grepl("Uncertain", cluster_identity)),
-             colour = "grey40", size = 1) +
+             aes(colour = "Uncertain"), size = 1) +
   geom_point(data = . %>%
                subset(!grepl("Unknown|Uncertain", cluster_identity)),
              aes(colour = as.factor(cluster_identity)), size = 1) +
   
-  scale_color_manual(values = SeuratExtend::color_iwh("default", n = 7)) + 
+  scale_color_manual(values = c(SeuratExtend::color_iwh("default", n = 7),
+                                "grey40", "grey85")) + 
   
   guides(color = guide_legend(override.aes = list(size = 2),
                               byrow = TRUE, position = "right",
@@ -382,3 +385,33 @@ ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.pdf",
 ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.png",
        panel, device = "png",
        width = 18/1.5, height = 8/1.5, units = "in", dpi = 300, bg = "white")
+
+
+######################################
+#     FIND MARKERS PER CELL TYPE     #
+######################################
+
+Sycon[[]] <- Sycon[[]] %>%
+  mutate(cluster_identity_reduced = cluster_identity, 
+         cluster_identity_reduced = str_replace_all(cluster_identity_reduced, "_", " "),
+         cluster_identity_reduced = str_replace_all(cluster_identity_reduced, " [0-9]+$", ""))
+  
+sycon_allMarkers_cellTypes <- Sycon %>%
+  FindAllMarkers(group.by = "cluster_identity_reduced")
+
+sycon_allMarkers_cellTypes %>%
+  group_by(cluster) %>%
+  filter(avg_log2FC > 1) %>%
+  slice_head(n = 10) %>%
+  ungroup() -> top10
+
+heatmap <- DoHeatmap(Sycon,
+                     group.by = "cluster_identity_reduced",
+                     features = top10$gene) +
+  NoLegend() +
+  theme(axis.text = element_text(size = 5))
+heatmap
+
+top10 %>%
+  filter(cluster == "Choanocytes") %>%
+  pull("gene")
