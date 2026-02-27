@@ -3,6 +3,7 @@
 setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses/")
 
 library(Seurat)
+library(SeuratExtend)
 library(DESeq2)
 library(tidyverse)
 
@@ -27,6 +28,8 @@ theme_for_UMAPS <- theme(
   panel.border = element_blank(),
   panel.background = element_blank(),
   panel.grid = element_blank(),
+  legend.text = element_text(size = 8),
+  legend.title = element_text(size = 10, face = "bold"),
   plot.title = element_text(size = 13, hjust = 0.5, vjust = 1.75, face = "bold"),
   axis.line = element_blank(),
   axis.ticks = element_blank(),
@@ -48,6 +51,8 @@ sycon_allMarkers_default %>%
 heatmap <- DoHeatmap(Sycon, features = top5$gene) + NoLegend() +
   theme(axis.text = element_text(size = 5))
 heatmap
+
+DotPlot2(Sycon, features = top5$gene)
 
 top5 %>%
   write.table(file = "07_notableGenes_clusterAnnotation/top5_markers_perCluster.tsv",
@@ -150,11 +155,9 @@ dotplot_notable_genes <- p$data %>%
                                   "22", "20", "28", "30", "31",
                                   "0", "2", "3", "4", "5", "6", "8", "9", "10", "14", "18"))) %>%
   filter(pct > 0) %>%
-  # semi_join(sycon_allMarkers_default %>%
-  #             filter(p_val_adj >= 0.05),
-  #           by = c("Var1" = "gene", "Var2" = "cluster")) %>%
   semi_join(sycon_allMarkers_default,
             by = c("Var1" = "gene", "Var2" = "cluster")) %>%
+  # left_join(notable_gene_names, by = join_by("Var1" == "gene_ID")) %>%
   
   ggplot(aes(Var1, Var2)) +
   geom_point(aes(size = pct, fill = zscore), shape = 21) +
@@ -247,48 +250,49 @@ ggsave("07_notableGenes_clusterAnnotation/dotplot_notableGenes_sig.png",
 cluster_identity <- c("0" = "Uncertain_0", # uncertain identity (choanos + development)
                       "1" = "Choanocytes_1",
                       "2" = "Unknown_2",
-                      "3" = "Uncertain_3", # not significant
-                      "4" = "Uncertain_4", # not significant
+                      "3" = "Unknown_3",
+                      "4" = "Unknown_4",
                       "5" = "Uncertain_5", # uncertain identity (choanos + development)
                       "6" = "Unknown_6",
                       "7" = "Choanocytes_7",
-                      "8" = "Uncertain_8", # not significant
-                      "9" = "Uncertain_9", # not significant
+                      "8" = "Unknown_8",
+                      "9" = "Unknown_9",
                       "10" = "Uncertain_10", # uncertain identity (choanos + development)
                       "11" = "Choanocytes_11",
-                      "12" = "Choanocytes_12",
-                      "13" = "Choanocytes_13",
+                      "12" = "Unknown_12",
+                      "13" = "Unknown_13",
                       "14" = "Unknown_14",
-                      "15" = "Metabolocytes-like_early_embryos",
+                      "15" = "Metabolocyte-_and_pinacocyte-like_early_embryos",
                       "16" = "Choanocytes_16",
                       "17" = "Oocytes/early_embryos",
                       "18" = "Unknown_18",
                       "19" = "Oocytes/early_embryos",
                       "20" = "Unknown_20",
                       "21" = "Myopeptidocyte-like_choanocytes",
-                      "22" = "Uncertain_22", # not significant
+                      "22" = "Unknown_22",
                       "23" = "Choanocytes_23",
                       "24" = "Oocytes/early_embryos",
-                      "25" = "Sclerocytes-like_choanocytes",
+                      "25" = "Sclerocyte-like_pinacocytes",
                       "26" = "Uncertain_26", # uncertain identity (choanos + development)
                       "27" = "Oocytes/early_embryos",
-                      "28" = "Uncertain_28", # not significant
-                      "29" = "Choanocytes_29",
+                      "28" = "Unknown_28",
+                      "29" = "Unknown_29",
                       "30" = "Accessory_cells",
-                      "31" = "Uncertain_31",
-                      "32" = "Archaeocytes-like_stem_cells")
+                      "31" = "Unknown_31",
+                      "32" = "Archaeocyte-like_stem_cells")
                       
 
-as_tibble(cluster_identity) %>%
+cluster_identity_df <- as_tibble(cluster_identity) %>%
   rownames_to_column(var = "cluster_ID") %>%
-  mutate(cluster_ID = as.character(as.numeric(cluster_ID) - 1)) %>%
-  write.table("intermediate_results/01_sycon_Sobjects_umaps/cluster_identity.tsv", sep = "\t",
-              quote = FALSE, col.names = TRUE, row.names = FALSE)
+  mutate(cluster_ID = as.character(as.numeric(cluster_ID) - 1))
+
+write.table(cluster_identity_df, "07_notableGenes_clusterAnnotation/cluster_identity.tsv", sep = "\t",
+            quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 Sycon[[]] <- Sycon[[]] %>%
-  left_join(data.frame(cluster_identity) %>%
-              rownames_to_column(var = "cluster_n"),
-            by = join_by("seurat_clusters" == "cluster_n"))
+  left_join(cluster_identity_df,
+            by = join_by("seurat_clusters" == "cluster_ID")) %>%
+  rename("cluster_identity" = "value")
 
 umap_clusters_raw <- DimPlot(Sycon, group.by = "seurat_clusters")
 umap_clusters_raw
@@ -296,6 +300,7 @@ umap_clusters_raw
 umap_clusters <- umap_clusters_raw@data %>%
   mutate(seurat_clusters = fct_infreq(as.factor(seurat_clusters))) %>%
   mutate(seurat_clusters = fct_rev(seurat_clusters)) %>%
+  
   ggplot(aes(x = UMAP_1, y = UMAP_2, colour = seurat_clusters, label = seurat_clusters)) +
   geom_point(size = 1) +
   
@@ -314,25 +319,25 @@ umap_clusters <- umap_clusters_raw@data %>%
   labs(x = "UMAP 1", y = "UMAP 2",
        color = "Cell clusters") +
   
-  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(12, "mm"),
-                                        y0 = unit(0, "mm"), y1 = unit(0, "mm"),
-                                        arrow = arrow(length = unit(2.5, "mm"),
-                                                      ends = "last", type = "open"),
-                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  annotation_custom(grob = grid::segmentsGrob(x0 = unit(0, "mm"), x1 = unit(12, "mm"),
+                                              y0 = unit(0, "mm"), y1 = unit(0, "mm"),
+                                              arrow = arrow(length = unit(2.5, "mm"),
+                                                            ends = "last", type = "open"),
+                                              gp = grid::gpar(col = "black", fill = "black", lwd = 1))) +
   
-  annotation_custom(grob = segmentsGrob(x0 = unit(0, "mm"), x1 = unit(0, "mm"),
-                                        y0 = unit(0, "mm"), y1 = unit(12, "mm"),
-                                        arrow = arrow(length = unit(2.5, "mm"),
-                                                      ends = "last", type = "open"),
-                                        gp = gpar(col = "black", fill = "black", lwd = 1))) +
+  annotation_custom(grob = grid::segmentsGrob(x0 = unit(0, "mm"), x1 = unit(0, "mm"),
+                                              y0 = unit(0, "mm"), y1 = unit(12, "mm"),
+                                              arrow = arrow(length = unit(2.5, "mm"),
+                                                            ends = "last", type = "open"),
+                                              gp = grid::gpar(col = "black", fill = "black", lwd = 1))) +
   
-  annotation_custom(grob = textGrob(label = "UMAP 1",
-                                    x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
-                                    just = c(0, 1), gp = gpar(fontsize = 10))) +
+  annotation_custom(grob = grid::textGrob(label = "UMAP 1",
+                                          x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
+                                          just = c(0, 1), gp = grid::gpar(fontsize = 10))) +
   
-  annotation_custom(grob = textGrob(label = "UMAP 2",
-                                    x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
-                                    just = c(0, 0), rot = 90, gp = gpar(fontsize = 10))) +
+  annotation_custom(grob = grid::textGrob(label = "UMAP 2",
+                                          x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
+                                          just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))) +
   
   coord_cartesian(clip = "off") +
   
@@ -348,7 +353,8 @@ umap_annotated <- umap_annotated_raw@data %>%
   mutate(cluster_identity = str_replace_all(cluster_identity, "_", " "),
          cluster_identity = str_replace_all(cluster_identity, " [0-9]+$", ""),
          cluster_identity = str_replace(cluster_identity, "-like ", "-like\n"),
-         cluster_identity = str_replace(cluster_identity, "/", "/\n")) %>%
+         cluster_identity = str_replace(cluster_identity, "/", "/\n"),
+         cluster_identity = str_replace(cluster_identity, "and ", "and \n")) %>%
   
   ggplot(aes(UMAP_1, UMAP_2)) +
   
@@ -363,11 +369,11 @@ umap_annotated <- umap_annotated_raw@data %>%
              aes(colour = as.factor(cluster_identity)), size = 1) +
   
   scale_color_manual(values = c(SeuratExtend::color_iwh("default", n = 7),
-                                "grey40", "grey85")) + 
+                                "grey60", "grey85")) + 
   
   guides(color = guide_legend(override.aes = list(size = 2),
                               byrow = TRUE, position = "right",
-                              keyheight = 1, default.unit = "cm")) +
+                              keyheight = 0.8, default.unit = "cm")) +
   
   labs(colour = "Main cell types") +
   
@@ -375,15 +381,15 @@ umap_annotated <- umap_annotated_raw@data %>%
   theme_for_UMAPS
 umap_annotated
 
-panel <- ggpubr::ggarrange(umap_clusters, umap_annotated, ncol = 2,
+panel_umaps <- ggpubr::ggarrange(umap_clusters, umap_annotated, ncol = 2,
                            widths = c(0.8, 1))
-panel
+panel_umaps
 
 ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.pdf",
-       panel, device = cairo_pdf,
+       panel_umaps, device = cairo_pdf,
        width = 18/1.5, height = 8/1.5, units = "in", dpi = 300, bg = "white")
 ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.png",
-       panel, device = "png",
+       panel_umaps, device = "png",
        width = 18/1.5, height = 8/1.5, units = "in", dpi = 300, bg = "white")
 
 
@@ -415,3 +421,187 @@ heatmap
 top10 %>%
   filter(cluster == "Choanocytes") %>%
   pull("gene")
+
+
+##############################################
+#     PLOT NOTABLE GENES FOR PUBLICATION     #
+##############################################
+
+notable_gene_names <- data.frame(gene_name = c("AE-like1","βcatA","βcatB","Bra1","Bra2","CA1","CA2",
+                                               "Cdx","Diactinin","DvlA","DvlB","Elav","Eya",
+                                               "FzdA","FzdB","FzdC","FzdD","Gata","Gli","Hedgling",
+                                               "Hex","Hmx","Lrp5/6","MsiA","MsiB","Msx",
+                                               "Nanos","NCBT-like1","NKA","NKB","PaxB","Pl10A","Pl10B",
+                                               "SixA","Smad1/5","Smad4","SmadRa",
+                                               "Sox6","Sox7","SoxB","SoxC","SoxE","SoxF1","SoxF2","Spiculin",
+                                               "TboxA","TboxB","TboxC","TcfA","TcfB",
+                                               "TgfβB","TgfβD","TgfβF","TgfβG","TgfβN","Triactinin","VasaA","VasaB",
+                                               "WntA","WntC","WntD","WntF","WntG","WntI","WntJ","WntL","WntN","WntQ","WntR","WntS","WntT"),
+                                 gene_ID = c("g8503","g13719","g4975","g3032","g3118","g782","g11209","g8932",
+                                             NA,"g949",NA,"g7460","g8356",NA,NA,"g4648","g3042","g2248","g8905",
+                                             NA,"g8162","g9066","g13476","g11831","g12083","g9084","g3613","g10087",
+                                             "g8884","g6644","g3655","g6724","g12152","g7040","g9893",
+                                             "g11243","g9154","g11067","g5646","g5684","g1695","g11976","g8388",NA,
+                                             "g7906","g9948",NA,"g10519","g9","g11378","g13016",NA,"g8564","g2075","g6992",
+                                             "g9905","g3867","g9458","g7201","g13150","g4399",NA,NA,"g13140",NA,
+                                             "g13308","g6996","g13684","g7152","g11232","g1969")) %>% as_tibble()
+
+
+p <- Sycon %>% SeuratExtend::DotPlot2(features = notable_gene_names$gene_ID)
+
+dotplot_markers_publication <- p$data %>%
+  
+  # sort y axis values to match cell types
+  mutate(Var2 = factor(Var2, levels = c(
+    "1","7","11","16","23","21","100",
+    "15","101",
+    "25","102",
+    "17","19","24","27","32","103",
+    "30","104",
+    "0","3","4","5","8","9","10","12","13","22","26","28","29","31","105",
+    "2","6","14","18","20"
+  ))) %>%
+  
+  # remove genes with 0 expression in cells
+  filter(pct > 0) %>%
+  
+  # add gene names
+  left_join(notable_gene_names, by = join_by("Var1" == "gene_ID")) %>%
+  filter(!is.na(gene_name)) %>%
+  
+  # remove genes that are not significant in any cell
+  filter(! gene_name %in% c("SoxC", "SoxF1", "Lrp5/6", "WntD", "WntS", "MsiA", "Gata", "TcfA", "βcatA", "Bra2", "Pl10B")) %>%
+  
+  # add cell cluster names
+  left_join(cluster_identity_df, by = join_by("group" == "cluster_ID")) %>%
+  mutate(value = str_replace_all(value, "_", " "),
+         value = str_replace_all(value, " [0-9]+$", ""),
+         value = str_replace(value, "-like ", "-like\n"),
+         value = str_replace(value, "/", "/\n"),
+         value = str_replace(value, "and ", "and\n"),
+         value = factor(value, levels = c("Choanocytes", "Oocytes/\nearly embryos", "Archaeocyte-like\nstem cells",
+                                          "Metabolocyte- and\npinacocyte-like\nearly embryos",
+                                          "Sclerocyte-like\npinacocytes", "Myopeptidocyte-like\nchoanocytes",
+                                          "Accessory cells", "Uncertain", "Unknown"))) %>%
+  rename("cell_identity" = "value") %>%
+  
+  # add p-values according to FindAllMarkers
+  left_join(sycon_allMarkers_default %>%
+              select(c(p_val_adj, cluster,gene)), by = join_by("group" == "cluster", "Var1" == "gene"),
+            relationship = "many-to-many") %>%
+
+  mutate(gene_name = factor(gene_name, levels = c("SoxE","Pl10A","Elav","WntQ","VasaA","VasaB","Smad1/5","Sox6","Sox7","SoxB","SoxC","SoxF1",
+                                                  "TgfβB","TgfβF","TgfβG","TgfβN","WntA","WntC","WntD","WntI","WntL","WntN","WntR","WntS",
+                                                  "WntT","Eya","SmadRa","MsiB","Gata","FzdC","FzdD","DvlA","TcfB","Cdx","Gli","PaxB",
+                                                  "AE-like1","CA1","CA2","NCBT-like1","Spiculin","Triactinin","βcatB","TboxC","NKA","NKB",
+                                                  "Nanos","Hex","Smad4","TboxA","Hmx","SixA","Bra1","MsiA","Lrp5/6","TcfA","βcatA","Bra2",
+                                                  "Pl10B")),
+         sig = case_when(p_val_adj < 0.05 ~ "*",
+                         TRUE ~ NA)) %>%
+  arrange(zscore) %>%
+  
+  
+  ggplot(aes(gene_name, as_factor(Var2))) +
+  
+  geom_vline(xintercept = Inf, color = "#4f4f4f") +
+  geom_rect(data = . %>% distinct(cell_identity),
+            aes(fill = cell_identity), alpha = 0.2, inherit.aes = FALSE,
+            xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  scale_fill_manual(values = c("Accessory cells" = "#B49440",
+                               "Archaeocyte-like\nstem cells" = "#B65CBF",
+                               "Choanocytes" = "#67A64E",
+                               "Metabolocyte- and\npinacocyte-like\nearly embryos" = "#747CC9",
+                               "Myopeptidocyte-like\nchoanocytes" = "#CA5F3E",
+                               "Oocytes/\nearly embryos" = "#48B1A7",
+                               "Sclerocyte-like\npinacocytes" = "#C8577B",
+                               "Uncertain" = "grey60",
+                               "Unknown" = NA),
+                    guide = "none") +
+  ggnewscale::new_scale_fill() +
+  
+  geom_point(aes(size = pct, color = zscore), shape = 19, alpha = 0.8) +
+  geom_text(aes(label = sig), size = 3, color = "white", fontface = "bold", vjust = 0.65) +
+  
+  scale_color_distiller(palette = "Blues", direction = 1) +
+  # scale_color_gradient(high = "#08306B", low = "#DEEBF7") +
+  
+  scale_y_discrete(limits = rev) +
+  scale_x_discrete(position = "top") +
+  scale_size_continuous(range = c(1,7)) +
+  
+  labs(x = "Marker genes", y = "Cell clusters",
+       color = "z-score", size = "Percent expressed") +
+  
+  facet_wrap(. ~ cell_identity, space = "free_y", scales = "free_y", strip.position = "right") +
+  
+  coord_cartesian(clip = "off") +
+  guides(size = guide_legend(label.position = "bottom", override.aes = list(color = "#77b3d6")),
+         color = guide_colorbar(barheight = 1.4)) +
+  
+  theme_bw(base_size = 12) +
+  theme(
+    plot.background = element_rect(fill = "transparent", colour = NA), 
+    panel.background = element_blank(),
+    panel.border = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "grey90", lineend = "round", linewidth = .5),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.key = element_rect(fill = "transparent", colour = NA),
+    legend.key.width = unit(.4, "cm"),
+    legend.key.height = unit(.4, "cm"),
+    legend.position = "bottom",
+    legend.title = element_text(size = 10, hjust = 0.5, face = "bold"),
+    legend.title.position = "top",
+    legend.text = element_text(size = 8),
+    axis.line = element_blank(),
+    axis.ticks = element_line(colour = "grey90", linewidth = .5),
+    axis.ticks.length = unit(0.10, "cm"),
+    axis.text.x = element_text(color = "black", angle = 45, face = "italic", hjust = 0,
+                               margin = margin(t = 4, r = 0, b = 0, l = 0)),
+    axis.text.y = element_text(color = "black",
+                               margin = margin(t = 0, r = 4, b = 0, l = 0)),
+    axis.title.y = element_text(angle = 90, size = 10, face = "bold",
+                                margin = margin(t = 0, r = 10, b = 0, l = 0)),
+    axis.title.x = element_text(angle = 0, size = 10, face = "bold",
+                                margin = margin(t = 10, r = 0, b = 0, l = 0)),
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text.y = element_text(face = "bold", size = 8, angle = 0, hjust = 0),
+    strip.clip = "off",
+  )
+dotplot_markers_publication
+
+panel_umaps_noLegend <- ggpubr::ggarrange(umap_clusters,
+                                          umap_annotated +
+                                            ggrepel::geom_text_repel(data = data.frame(x = -2, y = -5.5, label = "Uncertain"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = -0.5, nudge_y = -2) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 1, y = -3.4, label = "Unknown"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = 2.5, nudge_y = -2) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 7.3, y = -10.4, label = "Myopeptidocyte-like\nchoanocytes"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = -1, nudge_y = 2.5) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 9.4, y = -3.1, label = "Metabolocyte- and\npinacocyte-like\nearly-embryos"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = -4, nudge_y = 0.2, max.overlaps = Inf) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 11.5, y = 0, label = "Sclerocyte-like\npinacocytes"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = -4, nudge_y = 0.1) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 10.1, y = 1.9, label = "Accessory cells"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = -1.8, nudge_y = 1.2) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 11.9, y = 5.2, label = "Archaeocyte-like\n stem cells"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = -4, nudge_y = 0.4) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 7, y = 9.6, label = "Oocytes/early embryos"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = -2.5, nudge_y = -1) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 0.9, y = 4.1, label = "Choanocytes"),
+                                                                     aes(x = x, y = y, label = label), nudge_x = 2.5, nudge_y = 1.4) +
+                                            NoLegend(), ncol = 2)
+panel_umaps_noLegend
+
+panel_fig1 <- ggpubr::ggarrange(panel_umaps_noLegend, dotplot_markers_publication,
+                                nrow = 2, labels = "AUTO", heights = c(1,2))
+panel_fig1
+
+ggsave("07_notableGenes_clusterAnnotation/fig1_panel.pdf",
+       panel_fig1, device = cairo_pdf,
+       width = 20/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
+ggsave("07_notableGenes_clusterAnnotation/fig1_panel.png",
+       panel_fig1, device = "png",
+       width = 20/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
+
