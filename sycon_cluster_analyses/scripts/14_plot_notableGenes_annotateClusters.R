@@ -503,10 +503,10 @@ dotplot_markers_publication <- p$data %>%
   
   ggplot(aes(gene_name, as_factor(Var2))) +
   
-  geom_vline(xintercept = Inf, color = "#4f4f4f") +
   geom_rect(data = . %>% distinct(cell_identity),
             aes(fill = cell_identity), alpha = 0.2, inherit.aes = FALSE,
             xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  geom_vline(xintercept = Inf, color = "#4f4f4f") +
   scale_fill_manual(values = c("Accessory cells" = "#B49440",
                                "Archaeocyte-like\nstem cells" = "#B65CBF",
                                "Choanocytes" = "#67A64E",
@@ -519,10 +519,10 @@ dotplot_markers_publication <- p$data %>%
                     guide = "none") +
   ggnewscale::new_scale_fill() +
   
-  geom_point(aes(size = pct, color = zscore), shape = 19, alpha = 0.8) +
+  geom_point(aes(size = pct, fill = zscore), shape = 21, color = "#08306B", alpha = 0.8) +
   geom_text(aes(label = sig), size = 3, color = "white", fontface = "bold", vjust = 0.65) +
   
-  scale_color_distiller(palette = "Blues", direction = 1) +
+  scale_fill_distiller(palette = "Blues", direction = 1) +
   # scale_color_gradient(high = "#08306B", low = "#DEEBF7") +
   
   scale_y_discrete(limits = rev) +
@@ -530,12 +530,12 @@ dotplot_markers_publication <- p$data %>%
   scale_size_continuous(range = c(1,7)) +
   
   labs(x = "Marker genes", y = "Cell clusters",
-       color = "z-score", size = "Percent expressed") +
+       fill = "z-score", size = "Percent expressed") +
   
   facet_wrap(. ~ cell_identity, space = "free_y", scales = "free_y", strip.position = "right") +
   
   coord_cartesian(clip = "off") +
-  guides(size = guide_legend(label.position = "bottom", override.aes = list(color = "#77b3d6")),
+  guides(size = guide_legend(label.position = "bottom", override.aes = list(color = "#08306B")),
          color = guide_colorbar(barheight = 1.4)) +
   
   theme_bw(base_size = 12) +
@@ -574,23 +574,31 @@ dotplot_markers_publication
 panel_umaps_noLegend <- ggpubr::ggarrange(umap_clusters,
                                           umap_annotated +
                                             ggrepel::geom_text_repel(data = data.frame(x = -2, y = -5.5, label = "Uncertain"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = -0.5, nudge_y = -2) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = -0.5, nudge_y = -2, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 1, y = -3.4, label = "Unknown"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = 2.5, nudge_y = -2) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = 2.5, nudge_y = -2, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 7.3, y = -10.4, label = "Myopeptidocyte-like\nchoanocytes"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = -1, nudge_y = 2.5) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = -1, nudge_y = 2.5, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 9.4, y = -3.1, label = "Metabolocyte- and\npinacocyte-like\nearly-embryos"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = -4, nudge_y = 0.2, max.overlaps = Inf) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = -4, nudge_y = 0.2, max.overlaps = Inf, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 11.5, y = 0, label = "Sclerocyte-like\npinacocytes"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = -4, nudge_y = 0.1) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = -4, nudge_y = 0.1, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 10.1, y = 1.9, label = "Accessory cells"),
                                                                      aes(x = x, y = y, label = label), nudge_x = -1.8, nudge_y = 1.2) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 11.9, y = 5.2, label = "Archaeocyte-like\n stem cells"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = -4, nudge_y = 0.4) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = -4, nudge_y = 0.4, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 7, y = 9.6, label = "Oocytes/early embryos"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = -2.5, nudge_y = -1) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = -2.5, nudge_y = -1, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 0.9, y = 4.1, label = "Choanocytes"),
-                                                                     aes(x = x, y = y, label = label), nudge_x = 2.5, nudge_y = 1.4) +
+                                                                     aes(x = x, y = y, label = label),
+                                                                     nudge_x = 2.5, nudge_y = 1.4, lineheight = 0.9) +
                                             NoLegend(), ncol = 2)
 panel_umaps_noLegend
 
