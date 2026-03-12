@@ -24,50 +24,7 @@ Sycon <- readRDS("12_hdWGCNA/Sycon_hdWGCNA.Rds")
 #     FUNCTIONS     #
 #####################
 
-plot_module_UMAP <- function(module_name) {
-  
-  # first get the coordinates of points in the umap
-  umap <- Sycon@reductions$umap@cell.embeddings %>%
-    as_tibble(rownames = NA) %>%
-    rownames_to_column() %>%
-    
-    # then add information from meta data, including the score for each module
-    left_join(Sycon@meta.data %>% rownames_to_column()) %>%
-    select(rowname, UMAP_1, UMAP_2, all_of(module_name)) %>%
-    
-    # pivot data longer
-    pivot_longer(-c(rowname, UMAP_1, UMAP_2), names_to = "module", values_to = "expr") %>%
-    arrange(expr) %>%
-    # group_by(module) %>%
-    
-    # plot data
-    ggplot(aes(UMAP_1, UMAP_2)) +
-    geom_point(aes(col = expr),
-               size = 1.5) +
-    
-    # define color gradient rules
-    # note that in the original hdWGCNA script they make the range symmetrical
-    # is it legit? Isn't this affecting visualization?
-    # here, we do not make the range symmetrical
-    scale_color_gradient2(low = "grey75", mid = "grey95", high = module_name,
-                          midpoint = 0) +
-    
-    ggtitle(module_name) +
-    
-    # make the plot squared
-    coord_fixed() +
-    
-    theme(axis.text = element_text(size = 7),
-          axis.title = element_text(size = 8),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          panel.border = element_rect(color = "#4f4f4f", fill = NA, linewidth = 0.8),
-          panel.background = element_blank(),
-          panel.grid = element_blank()
-    )
-  
-  return(umap)
-}
-
+# plot UMAP of selected modules
 plot_module_UMAP <- function(module_name, color_name) {
   
   umap_df <- Sycon@reductions$umap@cell.embeddings %>%
@@ -89,7 +46,7 @@ plot_module_UMAP <- function(module_name, color_name) {
   p <- ggplot(umap_df, aes(UMAP_1, UMAP_2)) +
     geom_point(aes(col = expr), size = 1.5) +
     
-    scale_color_gradient2(low = "grey75", mid = "grey95", high = color_name,
+    scale_color_gradient2(low = "grey95", mid = "grey80", high = color_name,
                           midpoint = 0, limits = c(-max_abs, max_abs),
                           breaks = c(-max_abs, max_abs), labels = c("−", "+")) +
     
@@ -98,7 +55,7 @@ plot_module_UMAP <- function(module_name, color_name) {
   return(p)
 }
 
-
+# compute MDS of go term semantics
 get_GOterm_semantic_mds <- function(goterm_enrich_file) {
   goerms_bp_elim <- read.table(goterm_enrich_file, sep = "\t", header = TRUE, quote = "") %>%
     filter(classicFisher < 0.05)
@@ -128,6 +85,39 @@ get_GOterm_semantic_mds <- function(goterm_enrich_file) {
     arrange(desc(classicFisher))
   
   return(tibble_to_plot)
+}
+
+# plot MDS GO term
+plot_semantic_mds <- function(file, labels_list) {
+  df <- get_GOterm_semantic_mds(file)
+  
+  p <- ggplot(df, aes(D1, D2)) +
+    geom_point(aes(size = Significant, colour = -log(classicFisher)), alpha = 0.7)
+  
+  # add GO labels
+  for (lbl in labels_list) {
+    p <- p + geom_label(
+      data = df %>% filter(GO %in% lbl$GO) %>% summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
+      label = lbl$label,
+      fill = alpha("white", 0.8), size = 3,
+      label.padding = unit(0.3, "lines")
+    )
+  }
+  
+  # Add common scales, guides, and themes
+  p <- p +
+    labs(x = "MD1", y = "MD2", colour = "-log(p-val)", size = "Sig. genes") +
+    scale_size_continuous(range = c(1,14), breaks = c(5,10)) +
+    scale_color_gradient(high = "darkblue", low = "lightblue") +
+    guides(size = guide_legend(override.aes = list(color = "#706db8")),
+           color = guide_colorbar(barheight = 4, barwidth = 1)) +
+    coord_cartesian(clip = "off") +
+    theme_bw(base_size = 12) +
+    theme_for_UMAPS +
+    theme(plot.margin = margin(0,0,0,10,"mm"),
+          legend.position = "none")
+  
+  return(p)
 }
 
 
@@ -419,303 +409,113 @@ SeuratExtend:::color_iwh("intense", n = 5)
 #"#c7956d" "#8fae6c" "#6db7ad" "#879dcf" "#cc88ad"
 # "#b88340" "#9749ba" "#659d56" "#b64a56" "#757bad"
 
-module1_umap <- plot_module_UMAP("yellow", "#a0520f") +
+modules <- c("yellow","turquoise","green","brown","red")
+cols <- c("#e1c23a","#0faef2","#1fde22","#aa2831","#e0080b")
+
+module_umaps <- Map(plot_module_UMAP, modules, cols)
+
+module_umaps <- lapply(module_umaps, function(p)
+  p + theme_bw(base_size = 12) +
+    theme_for_UMAPS +
+    theme(legend.position = "none")
+)
+
+module_umaps[[1]] <- module_umaps[[1]] +
   labs(title = "Module signature") +
-  
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.title = element_text(hjust = 0.5),
-        legend.position = "none")
-module1_umap
+  theme(plot.title = element_text(hjust=0.5))
 
-module2_umap <- plot_module_UMAP("turquoise", "#af0fae") +
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.title = element_blank(),
-        legend.position = "none")
-module2_umap
-
-module3_umap <- plot_module_UMAP("green", "#0faf19") +
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.title = element_blank(),
-        legend.position = "none")
-module3_umap
-
-module4_umap <- plot_module_UMAP("brown", "#b90632") +
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.title = element_blank(),
-        legend.position = "none")
-module4_umap
-
-module5_umap <- plot_module_UMAP("red", "#0f0fa0") +
+module_umaps[[5]] <- module_umaps[[5]] +
   umap_arrows +
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.title = element_blank(),
-        legend.position = "none",
-        plot.margin = margin(0, 0, 6, 6, "mm"))
-module5_umap
+  theme(plot.margin = margin(0,0,6,6,"mm"))
 
 
 #######################################
 #     ENRICHMENTS FOR PUBLICATION     #
 #######################################
 
-module1_semantic_mds <- get_GOterm_semantic_mds("12_hdWGCNA/01_RNA_assay/yellow_RNA_module_genes_GOterms_topGO_BP_elim.txt")
-module2_semantic_mds <- get_GOterm_semantic_mds("12_hdWGCNA/01_RNA_assay/turquoise_RNA_module_genes_GOterms_topGO_BP_elim.txt")
-module3_semantic_mds <- get_GOterm_semantic_mds("12_hdWGCNA/01_RNA_assay/green_RNA_module_genes_GOterms_topGO_BP_elim.txt")
-module4_semantic_mds <- get_GOterm_semantic_mds("12_hdWGCNA/01_RNA_assay/brown_RNA_module_genes_GOterms_topGO_BP_elim.txt")
-module5_semantic_mds <- get_GOterm_semantic_mds("12_hdWGCNA/01_RNA_assay/red_RNA_module_genes_GOterms_topGO_BP_elim.txt")
+# list of GO term files
+module_enrich_files <- c("12_hdWGCNA/01_RNA_assay/yellow_RNA_module_genes_GOterms_topGO_BP_elim.txt",
+                         "12_hdWGCNA/01_RNA_assay/turquoise_RNA_module_genes_GOterms_topGO_BP_elim.txt",
+                         "12_hdWGCNA/01_RNA_assay/green_RNA_module_genes_GOterms_topGO_BP_elim.txt",
+                         "12_hdWGCNA/01_RNA_assay/brown_RNA_module_genes_GOterms_topGO_BP_elim.txt",
+                         "12_hdWGCNA/01_RNA_assay/red_RNA_module_genes_GOterms_topGO_BP_elim.txt")
 
-module1_goMD <-  module1_semantic_mds %>%
-  ggplot(aes(D1, D2)) +
-  geom_point(aes(size = Significant, colour = -log(classicFisher)), alpha = 0.7) +
+# define GO labels for each module
+module_GO_labels <- list(
   
-  geom_label(data = . %>%
-                     filter(GO %in% c("GO:0030833", "GO:0007015")) %>%
-                     summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-                   label = "Actin filament\norganization", fill = alpha("white", 0.8), size = 3,
-                   label.padding = unit(0.3, "lines")) +
+  # Module 1
+  list(
+    list(GO = c("GO:0030833", "GO:0007015"), label = "Actin filament\norganization"),
+    list(GO = c("GO:0030334", "GO:2000145", "GO:0040012", "GO:0040011"), label = "Cell\nmigration"),
+    list(GO = c("GO:0007131", "GO:0035825", "GO:0140527", "GO:1903046",
+                "GO:0140013", "GO:0061982", "GO:0007127", "GO:0051321"), label = "Meiotic\nprocesses")
+  ),
+  
+  # Module 2
+  list(
+    list(GO = c("GO:0046942", "GO:0015711", "GO:0050877"), label = "Organic molecule\nmetabolism"),
+    list(GO = c("GO:0032836","GO:0021554","GO:0097065","GO:0033333","GO:0033338","GO:0060039",
+                "GO:0048589","GO:0048468","GO:0048736","GO:0010720","GO:0048638","GO:0051094",
+                "GO:0072163","GO:0072164","GO:0001823","GO:0001657","GO:0060537","GO:0007399",
+                "GO:0010975","GO:0002064","GO:0072006","GO:0048731","GO:0007517","GO:0043588",
+                "GO:0050793","GO:0048856"), label = "Anatomical\ndevelopment"),
+    list(GO = c("GO:0007160", "GO:0031589", "GO:0042221", "GO:0007155",
+                "GO:0030198", "GO:0007156", "GO:0007166"), label = "Cell adhesion\nand proliferation")
+  ),
+  
+  # Module 3
+  list(
+    list(GO = c("GO:0007009", "GO:0071554", "GO:0006366"), label = "Cell membrane\norganization"),
+    list(GO = c("GO:0007229", "GO:0007155"), label = "Cell adhesion"),
+    list(GO = c("GO:0009913", "GO:0008544", "GO:0060429"), label = "Epithelium\ndevelopment")
+  ),
+  
+  # Module 4
+  list(
+    # list(GO = c("GO:0050801", "GO:0055080", "GO:0003169"), label = "Ion\nhomeostasis"),
+    list(GO = c("GO:0034220", "GO:0008656", "GO:0002600", "GO:0006820", "GO:0005698"), label = "Ion transmembrane\ntransport"),
+    list(GO = c("GO:0098609", "GO:0034446", "GO:0007160", "GO:0033627", "GO:0007156"), label = "Cell adhesion"),
+    list(GO = c("GO:0009718", "GO:0071895"), label = "Mineralized tissue\ndevelopment"),
+    list(GO = c("GO:0016055", "GO:0051493"), label = "Cytoskeleton\norganization")
+  ),
+  
+  # Module 5
+  list(
+    list(GO = c("GO:0006915", "GO:0007166", "GO:0043122", "GO:0071356"), label = "Cell adhesion\nand signalling")
+  )
+)
 
-  geom_label(data = . %>%
-                     filter(GO %in% c("GO:0030334", "GO:2000145", "GO:0040012", "GO:0040011")) %>%
-                     summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-                   label = "Cell\nmigration", fill = alpha("white", 0.8), size = 3,
-                   label.padding = unit(0.3, "lines")) +
+# denerate all plots in one go
+module_mds <- map2(module_enrich_files, module_GO_labels, plot_semantic_mds)
+names(module_mds) <- names(module_umaps)
 
-  geom_label(data = . %>%
-                     filter(GO %in% c("GO:0007131", "GO:0035825", "GO:0140527", "GO:1903046", "GO:0140013", "GO:0061982", "GO:0007127", "GO:0051321")) %>%
-                     summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-                   label = "Meiotic\nprocesses", fill = alpha("white", 0.8), size = 3,
-                   label.padding = unit(0.3, "lines")) +
+module_mds[[1]] <- module_mds[[1]] +
+  labs(title = "Major GO semantics") +
+  theme(plot.title = element_text(hjust = 0.5))
 
-  # geom_label_repel(data = . %>%
-  #                    filter(GO %in% c("GO:0009168", "GO:0009127", "GO:0046125", "GO:0009120", "GO:0009157")) %>%
-  #                    summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-  #                  label = "Ribonucleoside\nmetabolism", fill = alpha("white", 0.8), size = 3,
-  #                  label.padding = unit(0.3, "lines")) +
-  
-  # ggrepel::geom_text_repel(data = . %>%
-  #                            filter(Significant >= 2),
-  #                          aes(label = GO)) +
-   
-  labs(title = "Major GO semantics",
-       x = "MD1", y = "MD2",
-       colour = "-log(p-val)", size = "Sig. genes") +
-  
-  scale_size_continuous(range = c(1,14), breaks = c(5, 10)) +
-  scale_color_gradient(high = "lightblue", low = "darkblue") +
-  
-  guides(size = guide_legend(override.aes = list(color = "#706db8")),
-         color = guide_colorbar(barheight = 4, barwidth = 1)) +
-
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.margin = margin(6, 0, 0, 10, "mm"))
-
-module1_goMD
-
-module2_goMD <-  module2_semantic_mds %>%
-  ggplot(aes(D1, D2)) +
-  geom_point(aes(size = Significant, colour = -log(classicFisher)), alpha = 0.7) +
-  
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0046942", "GO:0015711", "GO:0050877")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Organic molecule\nmetabolism", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0032836","GO:0021554","GO:0097065","GO:0033333","GO:0033338","GO:0060039","GO:0048589","GO:0048468","GO:0048736",
-                                "GO:0010720","GO:0048638","GO:0051094","GO:0072163","GO:0072164","GO:0001823","GO:0001657","GO:0060537","GO:0007399",
-                                "GO:0010975","GO:0002064","GO:0072006","GO:0048731","GO:0007517","GO:0043588","GO:0050793", "GO:0048856")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Anatomical\ndevelopment", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0007160", "GO0031589", "GO0042221", "GO0007155", "GO0030198", "GO0007156", "GO0007166")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Cell adhesion\nand proliferation", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-  
-  # ggrepel::geom_text_repel(data = . %>%
-  #                            filter(Significant > 6),
-  #                          aes(label = GO)) +
-  
-  labs(x = "MD1", y = "MD2",
-       colour = "-log(p-val)", size = "Sig. genes") +
-  
-  scale_size_continuous(range = c(1,14), breaks = c(5, 10)) +
-  scale_color_gradient(high = "lightblue", low = "darkblue") +
-  
-  guides(size = guide_legend(override.aes = list(color = "#706db8")),
-         color = guide_colorbar(barheight = 4, barwidth = 1)) +
-  
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.margin = margin(0, 0, 0, 10, "mm"))
-
-module2_goMD
-
-module3_goMD <-  module3_semantic_mds %>%
-  ggplot(aes(D1, D2)) +
-  geom_point(aes(size = Significant, colour = -log(classicFisher)),alpha = 0.7) +
-  
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0007009", "GO:0071554", "GO:0006366")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Cell membrane\norganization", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0007229", "GO:0007155")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Cell adhesion", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0009913", "GO:0008544", "GO:0060429")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Epithelium\ndevelopment", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-  
-  # ggrepel::geom_text_repel(data = . %>%
-  #                            filter(Significant >= 2),
-  #                          aes(label = GO)) +
-  
-  labs(#title = "Enriched GOs",
-    x = "MD1", y = "MD2",
-    colour = "-log(p-val)", size = "Sig. genes") +
-  
-  scale_size_continuous(range = c(1,14), breaks = c(5, 10)) +
-  scale_color_gradient(high = "lightblue", low = "darkblue") +
-  
-  guides(size = guide_legend(override.aes = list(color = "#706db8")),
-         color = guide_colorbar(barheight = 4, barwidth = 1)) +
-  
-  coord_cartesian(clip = "off") +
-  
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.margin = margin(0, 0, 0, 10, "mm"))
-
-module3_goMD
-
-module4_goMD <-  module4_semantic_mds %>%
-  ggplot(aes(D1, D2)) +
-  geom_point(aes(size = Significant, colour = -log(classicFisher)), alpha = 0.7) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0050801", "GO:0055080", "GO:0003169")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Ion\nhomeostasis", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0034220", "GO:0008656", "GO:0002600", "GO0006820", "GO0005698")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Ion transmembrane\ntransport", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0098609", "GO:0034446", "GO:0007160", "GO:0033627", "GO:0007156")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Cell adhesion", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0009718", "GO:0071895")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Mineralized tissue\ndevelopment", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0016055", "GO:0051493")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Cytskeleton\norganization", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-
-  # ggrepel::geom_text_repel(data = . %>%
-  #                            filter(Significant >= 2),
-  #                          aes(label = GO)) +
-  
-  labs(#title = "Enriched GOs",
-    x = "MD1", y = "MD2",
-    colour = "-log(p-val)", size = "Sig. genes") +
-  
-  scale_size_continuous(range = c(1,14), breaks = c(5, 10)) +
-  scale_color_gradient(high = "lightblue", low = "darkblue") +
-  
-  guides(size = guide_legend(override.aes = list(color = "#706db8")),
-         color = guide_colorbar(barheight = 4, barwidth = 1)) +
-  
-  coord_cartesian(clip = "off") +
-  
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.margin = margin(0, 0, 0, 10, "mm"))
-
-module4_goMD
-
-module5_goMD <-  module5_semantic_mds %>%
-  ggplot(aes(D1, D2)) +
-  geom_point(aes(size = Significant, colour = -log(classicFisher)), alpha = 0.7) +
-  
-  # geom_label(data = . %>%
-  #              filter(GO %in% c("GO:0042989")) %>%
-  #              summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-  #            label = "Actin metabolism", fill = alpha("white", 0.8), size = 3,
-  #            label.padding = unit(0.3, "lines")) +
-
-  geom_label(data = . %>%
-               filter(GO %in% c("GO:0006915", "GO:0007166", "GO:0043122", "GO:0071356")) %>%
-               summarise(D1 = mean(D1), D2 = mean(D2), .groups = "drop"),
-             label = "Cell adhesion\nand signalling", fill = alpha("white", 0.8), size = 3,
-             label.padding = unit(0.3, "lines")) +
-  
-  # ggrepel::geom_text_repel(data = . %>%
-  #                            filter(Significant >= 2),
-  #                          aes(label = GO)) +
-  
-  labs(#title = "Enriched GOs",
-    x = "MD1", y = "MD2",
-    colour = "-log(p-val)", size = "Sig. genes") +
-  
-  scale_size_continuous(range = c(1,14), breaks = c(5, 10)) +
-  scale_color_gradient(high = "lightblue", low = "darkblue") +
-  
-  guides(size = guide_legend(override.aes = list(color = "#706db8")),
-         color = guide_colorbar(barheight = 4, barwidth = 1)) +
-  
+module_mds[[5]] <- module_mds[[5]] +
   md_arrows +
-  
-  theme_bw(base_size = 12) +
-  theme_for_UMAPS +
-  theme(plot.margin = margin(0, 0, 6, 10, "mm"))
+  theme(plot.margin = margin(0, 0, 6, 6, "mm"))
 
-module5_goMD
 
 
 #################
 #     PANEL     #
 #################
 
-panel_umaps <- ggpubr::ggarrange(module1_umap, module1_goMD,
-                                 module2_umap, module2_goMD,
-                                 module3_umap, module3_goMD,
-                                 module4_umap, module4_goMD,
-                                 module5_umap, module5_goMD,
-                                 nrow = 5, ncol = 2, align = "h",
-                                 widths = c(0.6,1),
-                                 labels = "AUTO")
-panel_umaps
+panel_def <- ggpubr::ggarrange(module_umaps$yellow, module_mds$yellow,
+                               module_umaps$turquoise + theme(plot.title = element_blank()), module_mds$turquoise,
+                               module_umaps$green + theme(plot.title = element_blank()), module_mds$green,
+                               module_umaps$brown + theme(plot.title = element_blank()), module_mds$brown,
+                               module_umaps$red + theme(plot.title = element_blank()), module_mds$red,
+                               nrow = 5, ncol = 2, align = "hv",
+                               widths = c(0.8,1),
+                               labels = "AUTO")
+panel_def
 
 ggsave("tmp.png",
-       panel_umaps, device = "png",
-       width = 12/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
+       panel_def, device = "png",
+       width = 11/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
 
 
 # Sycon@reductions$umap@cell.embeddings %>%
