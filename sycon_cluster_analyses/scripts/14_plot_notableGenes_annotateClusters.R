@@ -66,54 +66,6 @@ ggsave("07_notableGenes_clusterAnnotation/top5_marker_heatmap.png",
        heatmap, device = "png",
        height = 8*2, width = 10*2, dpi = 300, bg = "white")
 
-cluster_21_26_specific <- sycon_allMarkers_default %>%
-  filter(p_val_adj < 0.05) %>%
-  group_by(gene) %>%
-  mutate(cluster_agg = paste(unique(cluster), collapse = ",")) %>%
-  ungroup() %>%
-  filter(cluster_agg == "21,26") %>%
-  slice_max(order_by = avg_log2FC, n = 50)
-
-sycon_allMarkers_default %>%
-  filter(p_val_adj < 0.05) %>%
-  filter(gene == "g13150") %>%
-  group_by(gene) %>%
-  mutate(cluster_agg = paste(unique(cluster), collapse = ",")) %>%
-  ungroup()
-  
-DoHeatmap(Sycon, features = cluster_21_26_specific$gene)  
-
-uncertain_clusters <- cluster_identity %>% stack() %>%
-  filter(str_detect(values, "Uncertain")) %>%
-  pull(ind)
-
-uncertain_clusters_specific #<-
-  sycon_allMarkers_default %>%
-  filter(p_val_adj < 0.05) %>%
-  filter(cluster %in% c("1","7","11","16","21","23","25")) %>%
-  group_by(gene) %>%
-  mutate(n_clusters = n_distinct(cluster),
-         cluster_agg = paste(unique(cluster), collapse = ",")) %>%
-  ungroup() %>% View
-  # filter(n_cl1+7+11+16+21+23+25usters > 5) %>% filter(gene == "g7730")
-  # filter(cluster == "28",
-  #        avg_log2FC > 1) #%>%
-  View
-
-DoHeatmap(Sycon, features = uncertain_clusters_specific$gene)  
-
-cluster_5_specific <-
-  sycon_allMarkers_default %>%
-  filter(p_val_adj < 0.05) %>%
-  group_by(gene) %>%
-  mutate(n_clusters = n_distinct(cluster),
-         cluster_agg = paste(unique(cluster), collapse = ",")) %>%
-  ungroup() %>%
-  filter(cluster == "5") %>%
-  slice_max(order_by = avg_log2FC, n = 50)
-  
-DoHeatmap(Sycon, features = cluster_5_specific$gene)  
-
 sycon_allMarkers_default %>%
   filter(p_val_adj < 0.05) %>%
   write.table(file = "07_notableGenes_clusterAnnotation/all_markers_perCluster.tsv",
@@ -393,36 +345,6 @@ ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.png",
        width = 18/1.5, height = 8/1.5, units = "in", dpi = 300, bg = "white")
 
 
-######################################
-#     FIND MARKERS PER CELL TYPE     #
-######################################
-
-Sycon[[]] <- Sycon[[]] %>%
-  mutate(cluster_identity_reduced = cluster_identity, 
-         cluster_identity_reduced = str_replace_all(cluster_identity_reduced, "_", " "),
-         cluster_identity_reduced = str_replace_all(cluster_identity_reduced, " [0-9]+$", ""))
-  
-sycon_allMarkers_cellTypes <- Sycon %>%
-  FindAllMarkers(group.by = "cluster_identity_reduced")
-
-sycon_allMarkers_cellTypes %>%
-  group_by(cluster) %>%
-  filter(avg_log2FC > 1) %>%
-  slice_head(n = 10) %>%
-  ungroup() -> top10
-
-heatmap <- DoHeatmap(Sycon,
-                     group.by = "cluster_identity_reduced",
-                     features = top10$gene) +
-  NoLegend() +
-  theme(axis.text = element_text(size = 5))
-heatmap
-
-top10 %>%
-  filter(cluster == "Choanocytes") %>%
-  pull("gene")
-
-
 ##############################################
 #     PLOT NOTABLE GENES FOR PUBLICATION     #
 ##############################################
@@ -613,3 +535,127 @@ ggsave("07_notableGenes_clusterAnnotation/fig1_panel.png",
        panel_fig1, device = "png",
        width = 20/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
 
+
+#############################################
+#     PLOT TOP5 HEATMAP FOR PUBLICATION     #
+#############################################
+
+top5_gene_names <- data.frame(gene_name = c("Gs","g9227","Ntf2","g4161","g5797","Fibrinogen-like_1","Dscam-like","Hmx","g13838","Reeler_1","EGF/Laminin_1","g6974","vWA_1",
+                                            "vWA_2","Ser_protease_inhibitor_1","Collagen","EGF/Laminin_2","g10751","g7467","g7466","Fibrinogen-like_2","Atp5pb","g12902","Profilin","g10750","Fibrinogen-like_3",
+                                            "Litaf","g13598","g7090","g10478","g9945","Actin_1","Vatg","g972","Cox6B1","Trx","Granulin","Grx","g7110","g7109",
+                                            "Efh-like_1","g9244","g4644","g5695","g4274","g7689","Actin_2","g11077","Ser_protease_inhibitor_2","Adf_1","g7145","g13220","g11260","g13222",
+                                            "g13219","g9786","Rho_GTPase","PK","Efh-like_2","HMG-box","g11803","Ubiquitin-like","g12430","g12426","g12411","Adf_2","Ferritin_1","Actin_3",
+                                            "Rpp1C","Thy-β","g5815","Reeler_2","g258","g7014","g3337","g2945","g13794","Cbr/Clec-78","EGF/Laminin_3","Lrrk2","g4687","g11675","g7941","g7939",
+                                            "Hsp40/DnaJ","Hsp70_1","Hsp70_2","g10859","g10860","g10798","g11387","Banf2","g6738","DNA-polI","Limr","g13350","g6099","Tsp1","g13311","Clec3a",
+                                            "g2120","g2025","g13339","g13346","g13347","g13351","g13184","Col6α3","Spondin","Ferritin_2","Ferritin_3","Armc1","Histone_H2A","g6217","g13237",
+                                            "g10075","g7921","Ependymin_1","Fas1","Ependymin_2","g7108","g2122","g1771","g7688","g7949","Cda9","Cystatin_1","Cystatin_2","g13348","g13341","Cystatin_3","g6860",
+                                            "g12872","g12871","g4666","g11926","g4241","g5159","g7075","g13456","g4172"),
+                              gene_ID = c("g2318","g9227","g849","g4161","g5797","g12641","g4153","g9066","g13838","g609","g7679","g6974","g7611",
+                                          "g6674","g11550","g3083","g7469","g10751","g7467","g7466","g7468","g2894","g12902","g13119","g10750","g7428",
+                                          "g6842","g13598","g7090","g10478","g9945","g6719","g5874","g972","g838","g4517","g11545","g307","g7110","g7109",
+                                          "g9957","g9244","g4644","g5695","g4274","g7689","g4792","g11077","g11549","g10508","g7145","g13220","g11260","g13222",
+                                          "g13219","g9786","g7883","g2323","g1061","g10741","g11803","g3232","g12430","g12426","g12411","g1554","g7031","g4223",
+                                          "g9721","g5447","g5815","g5618","g258","g7014","g3337","g2945","g13794","g2336","g10457","g11295","g4687","g11675","g7941","g7939",
+                                          "g3385","g8652","g9627","g10859","g10860","g10798","g11387","g7923","g6738","g3745","g13498","g13350","g6099","g12405","g13311","g11398",
+                                          "g2120","g2025","g13339","g13346","g13347","g13351","g13184","g11565","g5471","g7113","g7027","g10528","g5592","g6217","g13237",
+                                          "g10075","g7921","g8206","g1039","g8207","g7108","g2122","g1771","g7688","g7949","g662","g7363","g13344","g13348","g13341","g13349","g6860",
+                                          "g12872","g12871","g4666","g11926","g4241","g5159","g7075","g13456","g4172")) %>% as_tibble()
+
+p_heatmap <- Sycon %>% SeuratExtend::DotPlot2(features = heatmap@data$Feature)
+
+top5markers_dotplot <- p_heatmap@data %>%
+  mutate(group = "Top-5 expressed genes per cluster") %>%
+  mutate(Var2 = as_factor(Var2)) %>%
+  
+  # remove genes with 0 expression in cells
+  filter(pct > 0) %>%
+  
+  # add gene names
+  left_join(top5_gene_names, by = join_by("Var1" == "gene_ID")) %>%
+  
+  left_join(sycon_allMarkers_default %>%
+              select(c(p_val_adj, cluster, gene)), by = join_by("Var2" == "cluster", "Var1" == "gene"),
+            relationship = "many-to-many") %>%
+  
+  mutate(Var1 = factor(Var1, levels = levels(heatmap@data$Feature)),
+         gene_name = coalesce(gene_name, Var1),
+         gene_name = factor(gene_name, levels = c("Gs","g9227","Ntf2","g4161","g5797","Fibrinogen-like_1","Dscam-like","Hmx","g13838","Reeler_1","EGF/Laminin_1","g6974","vWA_1",
+                                                  "vWA_2","Ser_protease_inhibitor_1","Collagen","EGF/Laminin_2","g10751","g7467","g7466","Fibrinogen-like_2","Atp5pb","g12902","Profilin","g10750","Fibrinogen-like_3",
+                                                  "Litaf","g13598","g7090","g10478","g9945","Actin_1","Vatg","g972","Cox6B1","Trx","Granulin","Grx","g7110","g7109",
+                                                  "Efh-like_1","g9244","g4644","g5695","g4274","g7689","Actin_2","g11077","Ser_protease_inhibitor_2","Adf_1","g7145","g13220","g11260","g13222",
+                                                  "g13219","g9786","Rho_GTPase","PK","Efh-like_2","HMG-box","g11803","Ubiquitin-like","g12430","g12426","g12411","Adf_2","Ferritin_1","Actin_3",
+                                                  "Rpp1C","Thy-β","g5815","Reeler_2","g258","g7014","g3337","g2945","g13794","Cbr/Clec-78","EGF/Laminin_3","Lrrk2","g4687","g11675","g7941","g7939",
+                                                  "Hsp40/DnaJ","Hsp70_1","Hsp70_2","g10859","g10860","g10798","g11387","Banf2","g6738","DNA-polI","Limr","g13350","g6099","Tsp1","g13311","Clec3a",
+                                                  "g2120","g2025","g13339","g13346","g13347","g13351","g13184","Col6α3","Spondin","Ferritin_2","Ferritin_3","Armc1","Histone_H2A","g6217","g13237",
+                                                  "g10075","g7921","Ependymin_1","Fas1","Ependymin_2","g7108","g2122","g1771","g7688","g7949","Cda9","Cystatin_1","Cystatin_2","g13348","g13341","Cystatin_3","g6860",
+                                                  "g12872","g12871","g4666","g11926","g4241","g5159","g7075","g13456","g4172")),
+         sig = case_when(p_val_adj < 0.05 ~ "*",
+                         TRUE ~ NA)) %>%
+
+  arrange(zscore) %>%
+  
+  ggplot(aes(gene_name, as_factor(Var2))) +
+  
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf,
+           fill = NA, color = "#4f4f4f", linewidth = 0.4) +
+  
+  # annotate("rect", xmin = seq(0,160,10), xmax = seq(5,165,10), ymin = -Inf, ymax = Inf,
+  #          fill = "grey60", color = NA, alpha = 0.2) +
+  
+  geom_point(aes(size = pct, color = zscore), shape = 19) +
+  geom_text(aes(label = sig), size = 3, color = "white", fontface = "bold", vjust = 0.65) +
+  
+  scale_color_distiller(palette = "Blues", direction = 1) +
+  
+  scale_y_discrete(limits = rev, position = "left", sec.axis = sec_axis(transform = identity)) +
+  scale_x_discrete(limits = rev, position = "top") +
+  scale_size_continuous(range = c(1,7)) +
+  
+  labs(x = "Top-5 markers per cluster", y = "Cell clusters",
+       color = "z-score", size = "Percent expressed") +
+  
+  coord_cartesian(clip = "off") +
+  guides(size = guide_legend(label.position = "bottom", override.aes = list(color = "#77b3d6")),
+         color = guide_colorbar(barheight = 1.4, barwidth = 5)) +
+  
+  theme_bw(base_size = 14) +
+  theme(
+    plot.margin = margin(0, 5, 0, 5, "mm"),
+    plot.background = element_rect(fill = "transparent", colour = NA), 
+    panel.background = element_blank(),
+    panel.border = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "grey90", lineend = "round", linewidth = .5),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.key = element_rect(fill = "transparent", colour = NA),
+    legend.key.width = unit(.4, "cm"),
+    legend.key.height = unit(.4, "cm"),
+    legend.position = "bottom",
+    legend.title = element_text(size = 10, hjust = 0.5, face = "bold"),
+    legend.title.position = "top",
+    legend.text = element_text(size = 10),
+    axis.line = element_blank(),
+    axis.ticks.x = element_line(colour = "grey90", linewidth = .5),
+    axis.ticks.y = element_blank(),
+    axis.ticks.length = unit(0.10, "cm"),
+    axis.text.x = element_text(color = "black", angle = 45, face = "italic", hjust = 0, size = 7,
+                               margin = margin(t = 4, r = 0, b = 0, l = 0)),
+    axis.text.y = element_text(color = "black",
+                               margin = margin(t = 0, r = 4, b = 0, l = 0)),
+    axis.title.y = element_text(angle = 90, size = 12, face = "bold",
+                                margin = margin(t = 0, r = 10, b = 0, l = 0)),
+    axis.title.x = element_text(angle = 0, size = 12, face = "bold",
+                                margin = margin(t = 10, r = 0, b = 0, l = 0)),
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text.x = element_text(face = "bold", size = 12, angle = 0),
+    strip.clip = "off"
+  )
+top5markers_dotplot
+
+ggsave("07_notableGenes_clusterAnnotation/top5_marker_dotplot.pdf",
+       top5markers_dotplot, device = cairo_pdf,
+       width = 31/1.5, height = 12/1.5, units = "in", dpi = 300, bg = "white")
+ggsave("07_notableGenes_clusterAnnotation/top5_marker_dotplot.png",
+       top5markers_dotplot, device = "png",
+       width = 31/1.5, height = 12/1.5, units = "in", dpi = 300, bg = "white")

@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses")
 
 library(tidyverse)
@@ -11,148 +13,103 @@ library(purrr)
 #     FUNCTIONS     #
 #####################
 
-# function to prepare the MappingScore SAMap matrix for plottin
-tidyup_dataframe <- function(filename, threshold) {
+# function to prepare the MappingScore SAMap matrix for plotting
+tidyup_dataframe <- function(filename, threshold = 0.4) {
   
-  # define the discrete categories of mapping scores
-  value_intervals <- c(0, 0.25, 0.5, 0.75, 1)
-  value_interval_labels <- c("\u2264 0.25", "\u2264 0.50", "\u2264 0.75", "\u2264 1.00")
-  
-  dataframe <- read.table(filename, header = TRUE, sep = "\t") %>%
+  df <- read.table(filename, header = TRUE, sep = "\t") %>%
     
     # create a long-format dataframe
-    pivot_longer(-X, names_to = "target", values_to = "value") %>%
-    rename(source = X) %>%
+    pivot_longer(-X, names_to = "target", values_to = "mapp_score") %>%
+    rename("X" = "source") %>% 
     
     # filter out rows with mapping scores below the threshold
-    filter(value >= threshold) %>%
+    filter(mapp_score >= threshold) %>%
     
-    # split the column of cell cluster IDs into two:
-    # one with the species name and another with the cell cluster name
-    separate(source, into = c("x", "group"), sep = "_", extra = "merge") %>%
-    separate(target, into = c("next_x", "next_group"), sep = "_", extra = "merge") %>%
+    # keep just one mapping of each pair   
+    mutate(pair = paste(pmin(source, target), pmax(source, target), sep = "_")) %>%
+    distinct(pair, .keep_all = TRUE) %>%
+    select(source, target, mapp_score) %>%
     
-    # create a column with unique edge IDs (necessary for the sankey plot function)
-    mutate(edge_id = paste(pmin(paste0(x, group), paste0(next_x, next_group)),
-                           pmax(paste0(x, group), paste0(next_x, next_group)), sep = "_")) %>%
-    
-    # tidy up cell cluster names
-    mutate(edge_id = str_replace_all(edge_id, "_", "."),
-           edge_id = str_replace_all(edge_id, "-", "."),
-           edge_id = str_replace_all(edge_id, " ", "."),
-           group = str_replace_all(group, "_", " "),
-           next_group = str_replace_all(next_group, "_", " ")) %>%
+    mutate(edge_id = paste0(source, "_", target)) %>%
+    pivot_longer(-c(mapp_score, edge_id)) %>%
+    mutate(edge_id = as.integer(factor(edge_id)),
+           name = str_replace(name, "source", "from"),
+           name = str_replace(name, "target", "to")) %>%
+    rename("name" = "connector",
+           "value" = "node") %>%
+    separate(node, into = c("species", "cell"),
+             extra = "merge", sep = "_", remove = FALSE) %>%
+    select(-cell) %>%
     
     # create a column with discrete categories for mapping scores
-    mutate(category = as_factor(cut(value, breaks = value_intervals,
-                                    labels = as.factor(value_interval_labels),
-                                    right = FALSE))) %>%
-    
-    # create a column with cleaned cell type names, in order to color code nodes
-    mutate(cell_type_col = str_remove(group, "\\s.*"),
-           category = factor(category, levels = c("\u2264 0.25", "\u2264 0.50", "\u2264 0.75", "\u2264 1.00")))
- 
-  return(dataframe)
+    mutate(category = factor(cut(mapp_score, breaks = value_intervals,
+                                 labels = as.factor(value_interval_labels),
+                                 right = FALSE),
+                             levels = c("\u2264 1.00", "\u2264 0.75", "\u2264 0.50", "\u2264 0.25"))) 
+  
+  return(df)
 }
+
 
 # function to produce a sankey plot out of the tidied-up dataframe
-plot_sankey <- function(dataframe, species, species_colors) {
-
-  # define element and text position in the plot
-  pos <- position_sankey(align = "center", v_space = "auto")
-  pos_text_left <- position_sankey(align = "center", v_space = "auto", nudge_x = -0.09)
-  pos_text_right <- position_sankey(align = "center", v_space = "auto", nudge_x = 0.09)
+plot_sankey <- function(df) {
   
-  colourCount <- length(unique(dataframe$group))
-  getPalette <- colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))
-  
-  dataframe <- dataframe %>%
-    mutate(connector = case_when(
-      x == species[1] ~ "from",              # If x is Sycon, connector is "from"
-      # x < next_x ~ "from",                # Default condition: x is less than next_x
-      TRUE ~ "to"                         # Otherwise, connector is "to"
-    ),
+  ggplot(data = df, aes(x = species, y = mapp_score,
+             group = node, connector = connector, edge_id = edge_id)) +
     
-    # sort species names
-    x_order = case_when(
-      x == species[1] ~ 1,          # If x is "Sycon", give it the first priority
-      TRUE ~ 3                    # Otherwise, assign the third priority (for all other species)
-    ),
+    geom_point(aes(fill = category), x = Inf, y = Inf,
+               col = NA, alpha = 0.5,
+               size = 0, shape = 22) +
+    ggsankeyfier::geom_sankeyedge(aes(fill = category), alpha = 0.5,
+                                  position = pos, show.legend = FALSE) +
     
-    x = factor(x, levels = species)) %>%
+    scale_fill_grey(name = "Mapping\nscore",
+                    start = 0.1, end = 0.8) +
+    guides(fill = guide_legend(override.aes = list(size = 3))) +
     
-    arrange(x_order, x)
-  
-  number_species1 <- sum(dataframe$x == species[1])
-  
-  plot <- dataframe %>%
-    
-    ggplot(aes(x = x, y = value, group = group,
-               connector = connector, edge_id = edge_id)) +
-    
-    # add sankey edges, colored by categories
-    ggsankeyfier::geom_sankeyedge(aes(fill = category),
-                                  position = pos, alpha = 0.7) +
-    scale_fill_grey(name = "Mapping\nscores",
-                    start = 0.9, end = 0,
-                    guide = guide_legend(reverse = TRUE),
-                    drop = FALSE
-                    ) +
-    
-    # add a new scale fill layer
+    ggnewscale::new_scale_fill() +
     ggnewscale::new_scale_fill() +
     
-    # add edge annotation with cell cluster names
-    # left labels
-    geom_text(aes(label = c(group[1:number_species1], rep(NA, length(group)-number_species1))), hjust = 1,
-              fontface = "bold",
-              col = "grey15", stat = "sankeynode", position = pos_text_left, cex = 3) +
-    # right labels
-    geom_text(aes(label = c(rep(NA, length(group)-number_species1), group[(number_species1+1):length(group)])), hjust = 0,
-              fontface = "bold",
-              col = "grey15", stat = "sankeynode", position = pos_text_right, cex = 3) +
+    geom_point(aes(fill = annotation), col = "grey20", x = Inf, y = Inf, size = 0, shape = 22) +
+    ggsankeyfier::geom_sankeynode(aes(fill = annotation), col = "grey20",
+                                  linewidth = 0.4, position = pos, show.legend = FALSE) +
     
-    # add sankey nodes colored by cell type
-    ggsankeyfier::geom_sankeynode(aes(#col = as.factor(group),
-                                      fill = as.factor(cell_type_col),
-                                      # fill = stage(as.factor(group),
-                                      #              after_scale = alpha(fill, 0.5)))
-                                      ),
-                                  col = "grey15",
-                                  linewidth = 0.4, position = pos) +
-    scale_fill_manual(values = getPalette(colourCount),
-                      #values = species_colors,
-                      guide = "none", aesthetics = c("color", "fill")) +
-     
-    # prevent clipping of plot elements
-    coord_cartesian(clip = 'off') +
+    scale_fill_manual(values = c("Accessory cells" = "#B49440",
+                                 "Archaeocyte-like\nstem cells" = "#B65CBF",
+                                 "Choanocytes" = "#67A64E",
+                                 "Metabolocyte- and\npinacocyte-like\nearly embryos" = "#747CC9",
+                                 "Myopeptidocyte-like\nchoanocytes" = "#CA5F3E",
+                                 "Oocytes/\nearly embryos" = "#48B1A7",
+                                 "Sclerocyte-like\npinacocytes" = "#C8577B",
+                                 "Uncertain" = "grey60",
+                                 "Unknown" = "grey85",
+                                 "Other species" = "white"),
+                      na.value = "white",
+                      breaks = ~ .x[!is.na(.x)],
+                      name = "Cluster\nannotation") +
+    guides(fill = guide_legend(override.aes = list(size = 3),
+                               keyheight = 1.1,
+                               default.unit = "cm")) +
     
-    # define plot themes
-    theme_minimal() +
-    theme(axis.text.x = element_text(color = species_colors,
-                                     face = "italic",
-                                     size = 12),
-          axis.text.y = element_blank(),
+    geom_text(data = . %>%
+                filter(str_detect(connector, "from")),
+              aes(label = node), cex = 3, hjust = 1, position = pos_text_left, stat = "sankeynode") +
+    geom_text(data = . %>%
+                filter(str_detect(connector, "to")),
+              aes(label = node), cex = 3, hjust = 0, position = pos_text_right, stat = "sankeynode") +
+    
+    theme_bw(base_size = 12) +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          axis.ticks = element_blank(),
           axis.title = element_blank(),
-          panel.grid = element_blank(),
-          legend.title = element_text(hjust = 0.5, face = "bold"))
- 
-  return(plot) 
+          axis.text.x = element_text(face = "italic", margin = margin(8, 0, 0, 0)),
+          axis.text.y = element_blank(),
+          legend.title = element_text(face = "bold", size = 10),
+          legend.text = element_text(size = 10))
 }
 
-fromTable_toSankey <- function(file_path, prefix_sp1, prefix_sp2, name_sp1, name_sp2, threshold = 0.2) {
-  
-  df <- tidyup_dataframe(file_path, threshold) %>%
-    mutate(
-      x = str_replace_all(x, prefix_sp1, name_sp1),
-      x = str_replace_all(x, prefix_sp2, name_sp2),
-      next_x = str_replace_all(next_x, prefix_sp1, name_sp1),
-      next_x = str_replace_all(next_x, prefix_sp2, name_sp2)
-    )
-  
-  plot_sankey(df, c(name_sp1, name_sp2), rep("grey15", 2))
-  
-}
+
 
 get_mappingScore_distribution <- function(filename, experiment = "leiden3Clusters") {
   
@@ -178,6 +135,131 @@ get_mappingScore_distribution <- function(filename, experiment = "leiden3Cluster
 ############################
 #     GENERATE SANKEYS     #
 ############################
+
+# define grey ranges for sankey edges
+value_intervals <- c(0, 0.25, 0.5, 0.75, 1)
+value_interval_labels <- c("\u2264 0.25", "\u2264 0.50", "\u2264 0.75", "\u2264 1.00")
+
+# define positions of sankey elements
+pos <- position_sankey(v_space = "auto", order = "ascending")
+pos_text_left <- position_sankey(v_space = "auto", order = "ascending", nudge_x = -0.1)
+pos_text_right <- position_sankey(v_space = "auto", order = "ascending", nudge_x = 0.1)
+
+# define sycon cluster annotation
+cluster_identity <- tibble(cluster = seq(0, 32),
+                           annotation = c("Uncertain_0", "Choanocytes_1", "Unknown_2", "Unknown_3",
+                                          "Unknown_4", "Uncertain_5", "Unknown_6", "Choanocytes_7", "Unknown_8",
+                                          "Unknown_9", "Uncertain_10", "Choanocytes_11", "Unknown_12", "Unknown_13",
+                                          "Unknown_14", "Metabolocyte-_and\npinacocyte-like\nearly_embryos",
+                                          "Choanocytes_16", "Oocytes/\nearly_embryos", "Unknown_18", "Oocytes/\nearly_embryos",
+                                          "Unknown_20", "Myopeptidocyte-like\nchoanocytes", "Unknown_22", "Choanocytes_23",
+                                          "Oocytes/\nearly_embryos", "Sclerocyte-like\npinacocytes", "Uncertain_26",
+                                          "Oocytes/\nearly_embryos", "Unknown_28", "Unknown_29", "Accessory_cells",
+                                          "Unknown_31", "Archaeocyte-like\nstem_cells")) %>%
+  mutate(cluster = as.character(cluster))
+cluster_identity
+
+aquescil_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/AqueScil_leiden3Clusters_100topCells_samapMappingTable.tsv") %>%
+  mutate(connector = case_when(connector == "from" ~ "to",
+                               connector == "to" ~ "from",
+                               TRUE ~ connector),
+         species = case_when(species == "Aque" ~ "Amphimedon\nqueenslandica",
+                             species == "Scil" ~ "Sycon\nciliatum",
+                             TRUE ~ species),
+         species = factor(species, levels = c("Sycon\nciliatum", "Amphimedon\nqueenslandica")),
+         node = str_replace(node, "Scil_|Aque_", ""),
+         node = str_replace_all(node, c("_" = " ",
+                                        "Pinaco" = "Pinacocytes",
+                                        "Archaeo" = "Archaeocytes",
+                                        "Collagen" = "Collagen cells"))) %>%
+  left_join(cluster_identity, by = join_by("node" == "cluster")) %>%
+  mutate(annotation = str_replace_all(annotation, "_[0-9]+$", ""),
+         annotation = str_replace_all(annotation, "_", " "))
+aquescil_mapping
+aquescil_sankey <- aquescil_mapping %>%
+  plot_sankey()
+aquescil_sankey
+
+
+scilslac_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/ScilSlac_leiden3Clusters_100topCells_samapMappingTable.tsv") %>%
+  mutate(species = case_when(species == "Slac" ~ "Spongilla\nlacustris",
+                             species == "Scil" ~ "Sycon\nciliatum",
+                             TRUE ~ species),
+         species = factor(species, levels = c("Sycon\nciliatum", "Spongilla\nlacustris")),
+         node = str_replace_all(node, c("Slac_10" = "Slac_10",
+                                        "Slac_18" = "Slac_18",
+                                        "Slac_15" = "Myopeptido-\ncytes 1",
+                                        "Slac_9" = "Myopeptido-\ncytes 2",
+                                        "Slac_8" = "Slac_8",
+                                        "Slac_14" = "Metabolocytes 1",
+                                        "Slac_32" = "Slac_32",
+                                        "Slac_17" = "Pinacocytes",
+                                        "Slac_24" = "Myopeptido-\ncytes 3",
+                                        "Slac_13" = "Slac_13",
+                                        "Slac_0" = "Archaeocytes 1",
+                                        "Slac_22" = "Slac_22",
+                                        "Slac_25" = "Choanocytes",
+                                        "Slac_4" = "Archaeocytes 5")),
+         node = str_replace(node, "Scil_", "")) %>%
+  left_join(cluster_identity, by = join_by("node" == "cluster")) %>%
+  mutate(annotation = str_replace(annotation, "_[0-9]+$", ""),
+         annotation = str_replace_all(annotation, "_", " "),
+         node = str_replace(node, "Slac_", ""))
+scilslac_mapping
+scilslac_sankey <- scilslac_mapping %>%
+  plot_sankey()
+scilslac_sankey
+
+panel <- ggpubr::ggarrange(aquescil_sankey, scilslac_sankey,
+                           common.legend = TRUE, legend = "right", labels = "AUTO")
+
+ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.png",
+       panel, device = "png",
+       width = 12, height = 6, dpi = 300, unit = "in", bg = "white")
+ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.pdf",
+       panel, device = cairo_pdf,
+       width = 12, height = 6, dpi = 300, unit = "in", bg = "white")
+
+
+slacaque_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/AqueSlac_leiden3Clusters_100topCells_samapMappingTable.tsv") %>%
+  mutate(species = case_when(species == "Slac" ~ "S. lacustris",
+                             species == "Aque" ~ "A. queenslandica",
+                             TRUE ~ species),
+         species = factor(species, levels = c("A. queenslandica", "S. lacustris")),
+         node = str_replace_all(node, c("Slac_10" = "10",
+                                        "Slac_18" = "18",
+                                        "Slac_15" = "Myopeptidocytes 1",
+                                        "Slac_9" = "Myopeptidocytes 2",
+                                        "Slac_8" = "8",
+                                        "Slac_14" = "Metabolocytes 1",
+                                        "Slac_32" = "32",
+                                        "Slac_17" = "Pinacocytes",
+                                        "Slac_24" = "Myopeptidocytes 3",
+                                        "Slac_13" = "13",
+                                        "Slac_0" = "Archaeocytes 1",
+                                        "Slac_22" = "22",
+                                        "Slac_25" = "Choanocytes/-blasts",
+                                        "Slac_4" = "Archaeocytes 5")),
+         node = str_replace_all(node, c("Aque_Pinaco" = "Pinacocytes",
+                                        "Aque_Archaeo" = "Archaeocytes",
+                                        "Aque_Collagen" = "Collagen cells",
+                                        "Aque_Choano_to_pinaco" = "Choano- to pinacocytes",
+                                        "Aque_Choanocytes" = "Choanocytes",
+                                        "Aque_Sperm" = "Sperm",
+                                        "Aque_Aspcizin" = "Aspcizin",
+                                        "Aque_Bactericidial" = "Bactericidial cells",
+                                        "Aque_Unk" = "Unknown",
+                                        "_" = " ")),
+         node = str_replace(node, "Aque |Slac ", ""))
+
+slacaque_mapping %>%
+  plot_sankey()
+
+aquescil_mapping %>%
+  add_row(scilslac_mapping %>%
+            mutate(edge_id = edge_id + nrow(aquescil_mapping)/2)) %>%
+  plot_sankey()
+
 
 ScilSlac_sankey <- fromTable_toSankey(
   "05_SAMap_porifera/01_mapping_scores/ScilSlac_leiden3Clusters_100topCells_samapMappingTable.tsv",

@@ -44,13 +44,13 @@ plot_module_UMAP <- function(module_name, color_name) {
     arrange(expr)
   
   p <- ggplot(umap_df, aes(UMAP_1, UMAP_2)) +
+    geom_vline(xintercept = seq(-5, 10, 5), col = "grey95") +
+    geom_hline(yintercept = seq(-10, 10, 5), col = "grey95") +
     geom_point(aes(col = expr), size = 1.5) +
     
     scale_color_gradient2(low = "grey95", mid = "grey80", high = color_name,
                           midpoint = 0, limits = c(-max_abs, max_abs),
-                          breaks = c(-max_abs, max_abs), labels = c("−", "+")) +
-    
-    ggtitle(module_name)
+                          breaks = c(-max_abs, max_abs), labels = c("−", "+"))
   
   return(p)
 }
@@ -92,7 +92,10 @@ plot_semantic_mds <- function(file, labels_list) {
   df <- get_GOterm_semantic_mds(file)
   
   p <- ggplot(df, aes(D1, D2)) +
-    geom_point(aes(size = Significant, colour = -log(classicFisher)), alpha = 0.7)
+    geom_vline(xintercept = seq(-0.5, 0.5, 0.5), col = "grey95") +
+    geom_hline(yintercept = seq(-0.5, 0.5, 0.5), col = "grey95") +
+    geom_point(aes(size = Significant, fill = -log(classicFisher)),
+               shape = 21, color = "#7e7bc7", alpha = 0.7)
   
   # add GO labels
   for (lbl in labels_list) {
@@ -106,16 +109,11 @@ plot_semantic_mds <- function(file, labels_list) {
   
   # Add common scales, guides, and themes
   p <- p +
-    labs(x = "MD1", y = "MD2", colour = "-log(p-val)", size = "Sig. genes") +
+    labs(x = "MD1", y = "MD2", fill = "-log(p-val)", size = "Sig. genes") +
     scale_size_continuous(range = c(1,14), breaks = c(5,10)) +
-    scale_color_gradient(high = "darkblue", low = "lightblue") +
+    scale_fill_gradient(high = "darkblue", low = "lightblue") +
     guides(size = guide_legend(override.aes = list(color = "#706db8")),
-           color = guide_colorbar(barheight = 4, barwidth = 1)) +
-    coord_cartesian(clip = "off") +
-    theme_bw(base_size = 12) +
-    theme_for_UMAPS +
-    theme(plot.margin = margin(0,0,0,10,"mm"),
-          legend.position = "none")
+           color = guide_colorbar(barheight = 4, barwidth = 1))
   
   return(p)
 }
@@ -149,6 +147,16 @@ umap_arrows <- list(
   
   coord_cartesian(clip = "off"))
 
+umap_coord_x <- list(annotation_custom(grob = grid::textGrob(label = "UMAP 1",
+                                                             x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
+                                                             just = c(0, 1), gp = grid::gpar(fontsize = 10))),
+                     coord_cartesian(clip = "off"))
+
+umap_coord_y <- list(annotation_custom(grob = grid::textGrob(label = "UMAP 2",
+                                                             x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
+                                                             just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))),
+                     coord_cartesian(clip = "off"))
+
 theme_for_UMAPS <- theme(
   # aspect.ratio = 1,
   plot.background = element_blank(), 
@@ -178,15 +186,25 @@ md_arrows <- list(
     arrow = arrow(length = unit(2.5, "mm"), ends = "last", type = "open"),
     gp = grid::gpar(col = "black", fill = "black", lwd = 1))),
   
-  annotation_custom(grob = grid::textGrob(label = "MD1",
+  annotation_custom(grob = grid::textGrob(label = "MD 1",
                                           x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
                                           just = c(0, 1), gp = grid::gpar(fontsize = 10))),
   
-  annotation_custom(grob = grid::textGrob(label = "MD2",
+  annotation_custom(grob = grid::textGrob(label = "MD 2",
                                           x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
                                           just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))),
   
   coord_cartesian(clip = "off"))
+
+md_coord_x <- list(annotation_custom(grob = grid::textGrob(label = "MD 1",
+                                                           x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
+                                                           just = c(0, 1), gp = grid::gpar(fontsize = 10))),
+                   coord_cartesian(clip = "off"))
+
+md_coord_y <- list(annotation_custom(grob = grid::textGrob(label = "MD 2",
+                                                           x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
+                                                           just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))),
+                   coord_cartesian(clip = "off"))
 
 
 theme_for_plots <- theme(
@@ -413,20 +431,43 @@ modules <- c("yellow","turquoise","green","brown","red")
 cols <- c("#e1c23a","#0faef2","#1fde22","#aa2831","#e0080b")
 
 module_umaps <- Map(plot_module_UMAP, modules, cols)
-
 module_umaps <- lapply(module_umaps, function(p)
-  p + theme_bw(base_size = 12) +
-    theme_for_UMAPS +
-    theme(legend.position = "none")
+  p +
+    scale_y_continuous(breaks = seq(-10, 5, 5)) +
+    coord_cartesian(clip = "off") +
+    theme_bw() +
+    theme(legend.position = "none",
+          axis.ticks = element_blank(),
+          axis.title = element_blank(),
+          axis.text = element_text(color = "#545454"),
+          panel.grid = element_blank(),
+          panel.border = element_rect(color = "#545454"),
+          # plot.margin = margin(0, 0, 0, 6, "mm")
+          )
 )
 
 module_umaps[[1]] <- module_umaps[[1]] +
-  labs(title = "Module signature") +
-  theme(plot.title = element_text(hjust=0.5))
+  annotate("text", x = -7.3, y = 11.5, hjust = 0,
+           label = "Oocytes/early embryos")
+
+module_umaps[[2]] <- module_umaps[[2]] +
+  annotate("text", x = -7.3, y = 11.5, hjust = 0,
+           label = "Embryos")
+
+module_umaps[[3]] <- module_umaps[[3]] +
+  annotate("text", x = -7.3, y = 11.5, hjust = 0,
+           label = "Choanocytes")
+
+module_umaps[[4]] <- module_umaps[[4]] +
+  annotate("text", x = -7.3, y = 11.5, hjust = 0,
+           label = "Sclerocytes")
 
 module_umaps[[5]] <- module_umaps[[5]] +
-  umap_arrows +
-  theme(plot.margin = margin(0,0,6,6,"mm"))
+  annotate("text", x = -7.3, y = 11.5, hjust = 0,
+           label = "Choanocytes") +
+  scale_x_continuous(breaks = seq(0, 10, 5)) +
+  scale_y_continuous(breaks = seq(-5, 5, 5)) +
+  umap_coord_x + umap_coord_y
 
 
 #######################################
@@ -444,100 +485,115 @@ module_enrich_files <- c("12_hdWGCNA/01_RNA_assay/yellow_RNA_module_genes_GOterm
 module_GO_labels <- list(
   
   # Module 1
-  list(
-    list(GO = c("GO:0030833", "GO:0007015"), label = "Actin filament\norganization"),
-    list(GO = c("GO:0030334", "GO:2000145", "GO:0040012", "GO:0040011"), label = "Cell\nmigration"),
-    list(GO = c("GO:0007131", "GO:0035825", "GO:0140527", "GO:1903046",
-                "GO:0140013", "GO:0061982", "GO:0007127", "GO:0051321"), label = "Meiotic\nprocesses")
-  ),
+  list(list(GO = c("GO:0030833", "GO:0007015"), label = "Actin filament\norganization"),
+       list(GO = c("GO:0030334", "GO:2000145", "GO:0040012", "GO:0040011"), label = "Cell\nmigration"),
+       list(GO = c("GO:0007131", "GO:0035825", "GO:0140527", "GO:1903046",
+                   "GO:0140013", "GO:0061982", "GO:0007127", "GO:0051321"), label = "Meiotic\nprocesses")),
   
   # Module 2
-  list(
-    list(GO = c("GO:0046942", "GO:0015711", "GO:0050877"), label = "Organic molecule\nmetabolism"),
-    list(GO = c("GO:0032836","GO:0021554","GO:0097065","GO:0033333","GO:0033338","GO:0060039",
-                "GO:0048589","GO:0048468","GO:0048736","GO:0010720","GO:0048638","GO:0051094",
-                "GO:0072163","GO:0072164","GO:0001823","GO:0001657","GO:0060537","GO:0007399",
-                "GO:0010975","GO:0002064","GO:0072006","GO:0048731","GO:0007517","GO:0043588",
-                "GO:0050793","GO:0048856"), label = "Anatomical\ndevelopment"),
-    list(GO = c("GO:0007160", "GO:0031589", "GO:0042221", "GO:0007155",
-                "GO:0030198", "GO:0007156", "GO:0007166"), label = "Cell adhesion\nand proliferation")
-  ),
+  list(list(GO = c("GO:0046942", "GO:0015711", "GO:0050877"), label = "Organic molecule\nmetabolism"),
+       list(GO = c("GO:0032836","GO:0021554","GO:0097065","GO:0033333","GO:0033338","GO:0060039",
+                   "GO:0048589","GO:0048468","GO:0048736","GO:0010720","GO:0048638","GO:0051094",
+                   "GO:0072163","GO:0072164","GO:0001823","GO:0001657","GO:0060537","GO:0007399",
+                   "GO:0010975","GO:0002064","GO:0072006","GO:0048731","GO:0007517","GO:0043588",
+                   "GO:0050793","GO:0048856"), label = "Anatomical\ndevelopment"),
+       list(GO = c("GO:0007160", "GO:0031589", "GO:0042221", "GO:0007155",
+                   "GO:0030198", "GO:0007156", "GO:0007166"), label = "Cell adhesion\nand proliferation")),
   
   # Module 3
-  list(
-    list(GO = c("GO:0007009", "GO:0071554", "GO:0006366"), label = "Cell membrane\norganization"),
-    list(GO = c("GO:0007229", "GO:0007155"), label = "Cell adhesion"),
-    list(GO = c("GO:0009913", "GO:0008544", "GO:0060429"), label = "Epithelium\ndevelopment")
-  ),
+  list(list(GO = c("GO:0007009", "GO:0071554", "GO:0006366"), label = "Cell membrane\norganization"),
+       list(GO = c("GO:0007229", "GO:0007155"), label = "Cell adhesion"),
+       list(GO = c("GO:0009913", "GO:0008544", "GO:0060429"), label = "Epithelium\ndevelopment")),
   
   # Module 4
-  list(
-    # list(GO = c("GO:0050801", "GO:0055080", "GO:0003169"), label = "Ion\nhomeostasis"),
-    list(GO = c("GO:0034220", "GO:0008656", "GO:0002600", "GO:0006820", "GO:0005698"), label = "Ion transmembrane\ntransport"),
-    list(GO = c("GO:0098609", "GO:0034446", "GO:0007160", "GO:0033627", "GO:0007156"), label = "Cell adhesion"),
-    list(GO = c("GO:0009718", "GO:0071895"), label = "Mineralized tissue\ndevelopment"),
-    list(GO = c("GO:0016055", "GO:0051493"), label = "Cytoskeleton\norganization")
-  ),
+  list(# list(GO = c("GO:0050801", "GO:0055080", "GO:0003169"), label = "Ion\nhomeostasis"),
+       list(GO = c("GO:0034220", "GO:0008656", "GO:0002600", "GO:0006820", "GO:0005698"), label = "Ion transmembrane\ntransport"),
+       list(GO = c("GO:0098609", "GO:0034446", "GO:0007160", "GO:0033627", "GO:0007156"), label = "Cell adhesion"),
+       list(GO = c("GO:0009718", "GO:0071895"), label = "Mineralized tissue\ndevelopment"),
+       list(GO = c("GO:0016055", "GO:0051493"), label = "Cytoskeleton\norganization")),
   
   # Module 5
-  list(
-    list(GO = c("GO:0006915", "GO:0007166", "GO:0043122", "GO:0071356"), label = "Cell adhesion\nand signalling")
-  )
+  list(list(GO = c("GO:0006915", "GO:0007166", "GO:0043122", "GO:0071356"), label = "Cell adhesion\nand signalling"))
 )
 
 # denerate all plots in one go
 module_mds <- map2(module_enrich_files, module_GO_labels, plot_semantic_mds)
 names(module_mds) <- names(module_umaps)
+module_mds <- lapply(module_mds, function(p)
+  p +
+    coord_cartesian(clip = "off") +
+    theme_bw() +
+    theme(legend.position = "none",
+          axis.ticks = element_blank(),
+          axis.title = element_blank(),
+          axis.text = element_text(color = "#545454"),
+          panel.grid = element_blank(),
+          panel.border = element_rect(color = "#545454"),
+          plot.margin = margin(2, 0, 3, 8, "mm")
+          )
+)
 
-module_mds[[1]] <- module_mds[[1]] +
-  labs(title = "Major GO semantics") +
-  theme(plot.title = element_text(hjust = 0.5))
+module_mds[[2]] <- module_mds[[2]] +
+  scale_y_continuous(breaks = c(-0.5, 0, 0.5))
+
+module_mds[[3]] <- module_mds[[3]] +
+  scale_y_continuous(breaks = c(-0.5, 0))
+
+module_mds[[4]] <- module_mds[[4]] +
+  scale_y_continuous(breaks = c(-0.5, 0.5))
 
 module_mds[[5]] <- module_mds[[5]] +
-  md_arrows +
-  theme(plot.margin = margin(0, 0, 6, 6, "mm"))
-
+  scale_x_continuous(breaks = c(0, 0.5)) +
+  scale_y_continuous(breaks = c(0, 0.5)) +
+  md_coord_x + md_coord_y
 
 
 #################
 #     PANEL     #
 #################
 
-panel_def <- ggpubr::ggarrange(module_umaps$yellow, module_mds$yellow,
-                               module_umaps$turquoise + theme(plot.title = element_blank()), module_mds$turquoise,
-                               module_umaps$green + theme(plot.title = element_blank()), module_mds$green,
-                               module_umaps$brown + theme(plot.title = element_blank()), module_mds$brown,
-                               module_umaps$red + theme(plot.title = element_blank()), module_mds$red,
-                               nrow = 5, ncol = 2, align = "hv",
-                               widths = c(0.8,1),
-                               labels = "AUTO")
-panel_def
+panel_def <-
+  module_umaps$yellow + module_mds$yellow +
+  module_umaps$turquoise + module_mds$turquoise +
+  module_umaps$green + module_mds$green +
+  module_umaps$brown + module_mds$brown +
+  module_umaps$red + module_mds$red +
+  patchwork::plot_layout(ncol = 2, widths = c(0.8, 1)) +
+  patchwork::plot_annotation(tag_levels = list(c("A", "B",
+                                                 "D", "E",
+                                                 "G", "H",
+                                                 "J", "K",
+                                                 "M", "N"))) &
+  theme(plot.tag = element_text(size = 14, face = "bold"),
+        plot.tag.location = "plot")
 
-ggsave("tmp.png",
+# panel_def
+
+ggsave("fig2.png",
        panel_def, device = "png",
-       width = 11/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
+       width = 10/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
 
 
 # Sycon@reductions$umap@cell.embeddings %>%
 #   as_tibble(rownames = NA) %>%
 #   rownames_to_column() %>%
-#   
+# 
 #   # then add information from meta data, including the score for each module
 #   left_join(Sycon@meta.data %>% rownames_to_column()) %>%
 #   select(rowname, UMAP_1, UMAP_2, red, blue, yellow, green, turquoise, brown) %>%
-#   
+# 
 #   # pivot data longer
 #   pivot_longer(-c(rowname, UMAP_1, UMAP_2), names_to = "module", values_to = "expr") %>%
 #   arrange(expr) %>%
 #   # group_by(module) %>%
-#   
+# 
 #   # plot data
 #   ggplot(aes(UMAP_1, UMAP_2)) +
 #   geom_point(aes(col = expr),
-#              # alpha = 0.5, 
+#              # alpha = 0.5,
 #              size = 0.7
 #   ) +
-#   
+# 
 #   # define color gradient rules
 #   # note that in the original hdWGCNA script they make the range symmetrical
 #   # is it legit? Isn't this affecting visualization?
@@ -545,39 +601,20 @@ ggsave("tmp.png",
 #   # scale_color_gradient2(low = "grey75", mid = "grey95", high = module_name,
 #   #                       midpoint = 0) +
 #   labs(x = "UMAP 1", y = "UMAP 2",
-#        color = "Module\nsignature", title = "Module 1") +
-#   
-#   annotation_custom(grob = grid::segmentsGrob(x0 = unit(0, "mm"), x1 = unit(12, "mm"),
-#                                               y0 = unit(0, "mm"), y1 = unit(0, "mm"),
-#                                               arrow = arrow(length = unit(2.5, "mm"),
-#                                                             ends = "last", type = "open"),
-#                                               gp = grid::gpar(col = "black", fill = "black", lwd = 1))) +
-#   
-#   annotation_custom(grob = grid::segmentsGrob(x0 = unit(0, "mm"), x1 = unit(0, "mm"),
-#                                               y0 = unit(0, "mm"), y1 = unit(12, "mm"),
-#                                               arrow = arrow(length = unit(2.5, "mm"),
-#                                                             ends = "last", type = "open"),
-#                                               gp = grid::gpar(col = "black", fill = "black", lwd = 1))) +
-#   
-#   annotation_custom(grob = grid::textGrob(label = "UMAP 1",
-#                                           x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
-#                                           just = c(0, 1), gp = grid::gpar(fontsize = 10))) +
-#   
-#   annotation_custom(grob = grid::textGrob(label = "UMAP 2",
-#                                           x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
-#                                           just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))) +
-#   
+#        color = "Module\nsignature") +
+# 
 #   coord_cartesian(clip = "off") +
-#   
-#   facet_wrap(. ~ module) +
-#   
-#   # make the plot squared
-#   coord_fixed() +
-#   
+# 
+#   facet_wrap(. ~ module, ncol = 1) +
+# 
 #   theme_bw(base_size = 12) +
 #   theme_for_UMAPS +
 #   theme(plot.title = element_text(hjust = 0),
-#         plot.margin = margin(5, 5, 10, 8, "mm"))
+#         plot.margin = margin(5, 5, 10, 8, "mm"),
+#         axis.line = element_line(),
+#         strip.background = element_blank(),
+#         strip.text = element_blank(),
+#         legend.position = "none")
 
 
 # ##########################################
