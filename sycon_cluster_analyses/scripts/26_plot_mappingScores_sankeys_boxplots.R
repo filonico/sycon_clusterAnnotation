@@ -104,9 +104,9 @@ plot_sankey <- function(df) {
     ggnewscale::new_scale_fill() +
     ggnewscale::new_scale_fill() +
     
-    geom_point(aes(fill = annotation), col = "grey20", x = Inf, y = Inf, size = 0, shape = 22) +
-    ggsankeyfier::geom_sankeynode(aes(fill = annotation), col = "grey20",
-                                  linewidth = 0.4, position = pos, show.legend = FALSE) +
+    geom_point(aes(fill = annotation), col = "black", x = Inf, y = Inf, size = 0, shape = 22) +
+    ggsankeyfier::geom_sankeynode(aes(fill = annotation), col = "black",
+                                  linewidth = 0.6, position = pos, show.legend = FALSE) +
     
     scale_fill_manual(values = c("Accessory cells" = "#B49440",
                                  "Archaeocyte-like\nstem cells" = "#B65CBF",
@@ -145,24 +145,116 @@ plot_sankey <- function(df) {
   return(plot)
 }
 
-get_mappingScore_distribution <- function(filename, experiment = "leiden3Clusters") {
+compute_score_distribution <- function(filename, threshold) {
   
-  dataframe <- read.table(filename, header = TRUE, sep = "\t", row.names = 1)
-
-  dataframe[upper.tri(dataframe)] <- NA
-
-  dataframe <- dataframe %>%
-    rownames_to_column(var = 'source') %>%
-    pivot_longer(-source, names_to = "target", values_to = "value") %>%
-    drop_na() %>%
-    separate(source, into = c("source_species", "source_group"), sep = "_", extra = "merge") %>%
-    separate(target, into = c("target_species", "target_group"), sep = "_", extra = "merge") %>%
-    filter(source_species != target_species) %>%
-    mutate(comparison = paste0(source_species, "_", target_species),
-           experiment = experiment) %>%
-    select(c(comparison, experiment, value))
+  df <- read.table(filename,
+                   header = TRUE, sep = "\t") %>%
+    
+    # create a long-format dataframe
+    pivot_longer(-X, names_to = "target_ID", values_to = "mapp_score") %>%
+    rename("source_ID" = "X") %>% 
+    
+    # filter out rows with mapping scores below the threshold
+    filter(mapp_score > threshold) %>%
+    
+    # keep just one mapping of each pair   
+    mutate(pair = paste(pmin(source_ID, target_ID), pmax(source_ID, target_ID), sep = "_")) %>%
+    distinct(pair, .keep_all = TRUE) %>%
+    select(source_ID, target_ID, mapp_score) %>%
+    
+    separate(source_ID, into = c("source_species", "source_cell"),
+             extra = "merge", sep = "_", remove = FALSE) %>%
+    separate(target_ID, into = c("target_species", "target_cell"),
+             extra = "merge", sep = "_", remove = FALSE) %>%
+    
+    mutate(species_pair = paste0(source_species, "_", target_species),
+           category_broad = case_when(species_pair %in% c("Aque_Scil", "Aque_Slac",
+                                                          "Slac_Scil") ~ "Within Porifera",
+                                      
+                                      species_pair %in% c("Hvul_Nvec", "Hvul_Xesp",
+                                                          "Hvul_Spis", "Nvec_Xesp",
+                                                          "Nvec_Spis", "Xesp_Hvul",
+                                                          "Xesp_Nvec", "Xesp_Spis",
+                                                          "Spis_Hvul", "Spis_Nvec",
+                                                          "Spis_Xesp") ~ "Within Cnidaria",
+                                      
+                                      TRUE ~ "Porifera vs Cnidaria"), 
+           category_broad = as_factor(category_broad),
+           category_broad = relevel(category_broad, ref = "Within Porifera")) %>%
+    arrange(mapp_score) %>%
+    group_by(category_broad) %>%
+    mutate(rank = row_number(),
+           survival = 1 - rank / n(),
+           # survival = case_when(survival == 0 ~ 2e-16,
+           #                      TRUE ~ survival)
+           high_score = mapp_score > 0.9)
   
-  return(dataframe)
+  return(df)
+}
+
+plot_boxplot <- function(mapp_score_df) {
+  
+  cnidaria_n_scores <- length(subset(mapp_score_df,
+                                     category_broad == "Within Cnidaria")$mapp_score)
+  porifera_n_scores <- length(subset(mapp_score_df,
+                                     category_broad == "Within Porifera")$mapp_score)
+  cnidariaVSporifera_n_scores <- length(subset(mapp_score_df,
+                                               category_broad == "Porifera vs Cnidaria")$mapp_score)
+  
+  boxplot <- mapp_score_df %>%
+    ggplot(aes(x = mapp_score, y = category_broad, col = category_broad, fill = category_broad)) +
+    geom_jitter(size = 2, height = 0.4) +
+    
+    scale_color_manual(values = colors$alpha) +
+    
+    geom_boxplot(width = 0.4, col = "black", linewidth = 0.7,
+                 outliers = FALSE, staplewidth = 0.5) +
+    
+    # stat_compare_means(comparisons = wilcox_comparisons, method = "wilcox.test",
+    #                    symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), 
+    #                                       symbols = c("****", "***", "**", "*", "ns"))) +
+    
+    scale_fill_manual(values = colors$main) +
+    scale_y_discrete(limits = rev,
+                     labels = c(paste0("Within\nCnidaria\n(n = ", format(cnidaria_n_scores, big.mark = ","), ")"),
+                                paste0("Porifera vs\nCnidaria\n(n = ", format(cnidariaVSporifera_n_scores, big.mark = ","), ")"),
+                                paste0("Within\nPorifera\n(n = ", format(porifera_n_scores, big.mark = ","), ")"))) +
+    
+    labs(x = "Mapping scores", y = "Comparison") +
+    
+    theme_bw(base_size = 12) +
+    theme_for_plots +
+    theme(legend.position = "none",
+          axis.title.y = element_blank())
+  
+  return(boxplot)
+}
+
+plot_survival <- function(mapp_score_df) {
+  
+  survival_plot <- mapp_score_df %>%
+    ggplot(aes(x = mapp_score, y = survival)) +
+    
+    geom_line(aes(color = category_broad), linewidth = 1) +
+    scale_color_manual(values = colors$main) +
+    
+    # geom_text(x = 0.55, y = 0.9, label = "KS test, p = 0.002") +
+    
+    labs(x = "Mapping score", y = "P(score ≥ x)")  +
+    
+    guides(color = guide_legend(keyheight = 0.8,
+                                default.unit = "cm")) +
+    
+    theme_bw(base_size = 12) +
+    theme_for_plots +
+    theme(legend.position = "inside",
+          legend.position.inside = c(0.72, 0.82),
+          legend.background = element_rect(fill = "white",
+                                           colour = "black", linewidth = .4),
+          legend.title = element_blank(),
+          legend.margin = margin(0, 6, 0, 3, "mm"))
+  
+  return(survival_plot)
 }
 
 
@@ -300,9 +392,9 @@ slacaque_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/AqueSl
 #   plot_sankey()
 
 
-####################################
-#     BOXPLOTS WITH CNIDARIANS     #
-####################################
+####################################################
+#     BOXPLOTS WITH CNIDARIANS (THRESHOLD 0.4)     #
+####################################################
 
 comparisons <- c("Porifera vs Cnidaria",
                  "Within Porifera",
@@ -311,49 +403,8 @@ comparisons <- c("Porifera vs Cnidaria",
 colors <- list(main  = setNames(c("#ffd166", "#ef476f", "#26547c"), comparisons),
                alpha = setNames(c("#f6e4ac", "#f98db3", "#8797a4"), comparisons))
 
-# read in mapping scores
-df_stitched_samap <- read.table("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
-                                header = TRUE, sep = "\t") %>%
-  
-  # create a long-format dataframe
-  pivot_longer(-X, names_to = "target_ID", values_to = "mapp_score") %>%
-  rename("source_ID" = "X") %>% 
-  
-  # filter out rows with mapping scores below the threshold
-  filter(mapp_score >= 0.4) %>%
-  
-  # keep just one mapping of each pair   
-  mutate(pair = paste(pmin(source_ID, target_ID), pmax(source_ID, target_ID), sep = "_")) %>%
-  distinct(pair, .keep_all = TRUE) %>%
-  select(source_ID, target_ID, mapp_score) %>%
-  
-  separate(source_ID, into = c("source_species", "source_cell"),
-           extra = "merge", sep = "_", remove = FALSE) %>%
-  separate(target_ID, into = c("target_species", "target_cell"),
-           extra = "merge", sep = "_", remove = FALSE) %>%
-  
-  mutate(species_pair = paste0(source_species, "_", target_species),
-         category_broad = case_when(species_pair %in% c("Aque_Scil", "Aque_Slac",
-                                                        "Slac_Scil") ~ "Within Porifera",
-                                    
-                                    species_pair %in% c("Hvul_Nvec", "Hvul_Xesp",
-                                                        "Hvul_Spis", "Nvec_Xesp",
-                                                        "Nvec_Spis", "Xesp_Hvul",
-                                                        "Xesp_Nvec", "Xesp_Spis",
-                                                        "Spis_Hvul", "Spis_Nvec",
-                                                        "Spis_Xesp") ~ "Within Cnidaria",
-                                    
-                                    TRUE ~ "Porifera vs Cnidaria"), 
-         category_broad = as_factor(category_broad),
-         category_broad = relevel(category_broad, ref = "Within Porifera")) %>%
-  arrange(mapp_score) %>%
-  group_by(category_broad) %>%
-  mutate(rank = row_number(),
-         survival = 1 - rank / n(),
-         # survival = case_when(survival == 0 ~ 2e-16,
-         #                      TRUE ~ survival)
-         high_score = mapp_score > 0.9)
-
+df_stitched_samap <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
+                                                0.4)
 
 wilcox_comparisons <- combn(levels(df_stitched_samap$category_broad), 2, simplify = FALSE)
 pairwise.wilcox.test(df_stitched_samap$mapp_score, df_stitched_samap$category_broad, p.adj = "bonferroni")
@@ -366,61 +417,29 @@ ks.test(porifera_scores, cnidaria_scores, alternative = "greater")
 ks.test(porifera_scores, cnidariaVSporifera_scores, alternative = "greater")
 effsize::cliff.delta(cnidaria_scores, porifera_scores)
 
-boxplot <- df_stitched_samap %>%
-  ggplot(aes(x = mapp_score, y = category_broad, col = category_broad, fill = category_broad)) +
-  geom_jitter(size = 2, height = 0.4) +
-  
-  scale_color_manual(values = colors$alpha) +
+boxplot_threshold04 <- plot_boxplot(df_stitched_samap)
+boxplot_threshold04
 
-  geom_boxplot(width = 0.4, col = "black", linewidth = 0.7,
-               outliers = FALSE, staplewidth = 0.5) +
-  
-  # stat_compare_means(comparisons = wilcox_comparisons, method = "wilcox.test",
-  #                    symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), 
-  #                                       symbols = c("****", "***", "**", "*", "ns"))) +
-  
-  scale_fill_manual(values = colors$main) +
-  scale_y_discrete(limits = rev,
-                   labels = c(paste0("Within\nCnidaria\n(n = ", length(cnidaria_scores), ")"),
-                              paste0("Porifera vs\nCnidaria\n(n = ", length(cnidariaVSporifera_scores), ")"),
-                              paste0("Within\nPorifera\n(n = ", length(porifera_scores), ")"))) +
+survival_plot_threshold04 <- plot_survival(df_stitched_samap)
+survival_plot_threshold04
 
-  labs(x = "Mapping scores", y = "Comparison") +
+panel_statistics <- ggarrange(boxplot_threshold04 + theme(axis.title.x = element_blank()),
+                              survival_plot_threshold04,
+                              nrow = 2)
 
-  theme_bw(base_size = 12) +
-  theme_for_plots +
-  theme(legend.position = "none",
-        axis.title.y = element_blank())
+ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.png",
+       panel_statistics, device = "png",
+       width = 6/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
+ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.pdf",
+       panel_statistics, device = cairo_pdf,
+       width = 6/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
 
-boxplot
-
-survival_plot <- df_stitched_samap %>%
-  ggplot(aes(x = mapp_score, y = survival)) +
-  
-  geom_line(aes(color = category_broad), linewidth = 1) +
-  scale_color_manual(values = colors$main) +
-  
-  # geom_text(x = 0.55, y = 0.9, label = "KS test, p = 0.002") +
-  
-  labs(x = "Mapping score", y = "P(score ≥ x)")  +
-  
-  guides(color = guide_legend(keyheight = 0.8,
-                              default.unit = "cm")) +
-  
-  theme_bw(base_size = 12) +
-  theme_for_plots +
-  theme(legend.position = "inside",
-        legend.position.inside = c(0.72, 0.82),
-        legend.background = element_rect(fill = "white",
-                                         colour = "black", linewidth = .4),
-        legend.title = element_blank(),
-        legend.margin = margin(0, 6, 0, 3, "mm"))
-survival_plot
-
-panel_statistics <- ggarrange(boxplot + theme(axis.title.x = element_blank()),
-                              survival_plot,
-                              nrow = 2) +
+panel_statistics <- panel_statistics +
   theme(plot.margin = margin(0, 0, 0, 10, "mm"))
+
+######################################
+#     FINAL PANEL FOR MANUSCRIPT     #
+######################################
 
 final_panel <- ggarrange(panel_sankeys, panel_statistics,
                          labels = "AUTO", font.label = list(size = 20),
@@ -433,3 +452,34 @@ ggsave("05_SAMap_porifera/03_plots/final_panel_fig3.png",
 ggsave("05_SAMap_porifera/03_plots/final_panel_fig3.pdf",
        final_panel, device = cairo_pdf,
        width = 14/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
+
+
+#################################################
+#     BOXPLOTS WITH CNIDARIANS (ALL SCORES)     #
+#################################################
+
+# read in mapping scores
+df_stitched_samap_allScores <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
+                                                          0)
+
+options(scipen = 999)
+
+boxplot_threshold0 <- plot_boxplot(df_stitched_samap_allScores) +
+  scale_x_log10()
+boxplot_threshold0
+
+survival_plot_threshold0 <- plot_survival(df_stitched_samap_allScores) +
+  scale_x_log10() + xlab("Mapping scores (log10)")
+survival_plot_threshold0
+
+panel_statistics_threshold0 <- ggarrange(boxplot_threshold0 + theme(axis.title.x = element_blank()),
+                                         survival_plot_threshold0,
+                                         nrow = 2, align = "v")
+panel_statistics_threshold0
+
+ggsave("05_SAMap_porifera/03_plots/statistics_threshold0.png",
+       panel_statistics_threshold0, device = "png",
+       width = 6/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
+ggsave("05_SAMap_porifera/03_plots/statistics_threshold0.pdf",
+       panel_statistics_threshold0, device = cairo_pdf,
+       width = 6/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
