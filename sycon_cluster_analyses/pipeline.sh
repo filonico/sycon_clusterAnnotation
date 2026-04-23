@@ -212,11 +212,13 @@ for i in 13_recluster_blob/04_SAMap/*pkl; do python scripts/10_get_SAMap_genePai
 
 # run SAMap for cnidaria
 bash scripts/08_run_SAMap.sh Nvec,Spis,Hvul,Xesp pairwise 15_SAMap_cnidaria/ | tee -a 15_SAMap_cnidaria/Cnidaria_samap_pairwise_leiden.log
+bash scripts/08_run_SAMap.sh Aque,Slac,Scil,Nvec,Spis,Hvul,Xesp pairwise 15_SAMap_cnidaria/ | tee -a 15_SAMap_cnidaria/CnidariaPorifera_samap_pairwise_leiden.log
 
 # get mapping scores
-for i in 15_SAMap_cnidaria/*pkl; do python scripts/09_get_SAMap_mappingTables.py -p $i -o 15_SAMap_cnidaria/01_mapping_scores -n 0; done
+for i in 15_SAMap_cnidaria/*pkl; do python scripts/09_get_SAMap_mappingTables.py -p $i -o 15_SAMap_cnidaria/01_mapping_scores -n 100; done
+for i in 15_SAMap_cnidaria/*pkl; do python scripts/09b_get_SAMap_mappingTables_leidenClusters.py -p $i -o 15_SAMap_cnidaria/01_mapping_scores -n 100; done
 
-# get gene pairs for Placozoa and all Sycon clusters
+# get gene pairs
 for i in 15_SAMap_cnidaria/*pkl; do python scripts/10_get_SAMap_genePairs.py -p $i -o 15_SAMap_cnidaria/02_gene_pairs -t 0.2; done
 
 

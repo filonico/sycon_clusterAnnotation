@@ -9,6 +9,40 @@ library(RColorBrewer)
 library(purrr)
 
 
+#############################
+#     THEMESS FOR PLOTS     #
+#############################
+
+theme_for_plots <- theme(
+  # aspect.ratio = 1,
+  plot.background = element_rect(fill = "transparent", colour = NA), 
+  panel.background = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.grid.major = element_line(color = "grey90", lineend = "round"),
+  panel.border = element_rect(colour = "black", linewidth = .6),
+  legend.background = element_rect(fill = "transparent", colour = NA),
+  legend.key = element_rect(fill = "transparent", colour = NA),
+  legend.key.width = unit(.4, "cm"),
+  legend.key.height = unit(.4, "cm"),
+  legend.position = "right",
+  legend.title = element_text(face = "bold", size = 10),
+  legend.text = element_text(size = 10),
+  axis.line = element_blank(),
+  axis.ticks = element_line(colour = "black", linewidth = .4),
+  axis.ticks.length = unit(0.10, "cm"),
+  axis.text.x = element_text(color = "black",
+                             margin = margin(t = 4, r = 0, b = 0, l = 0)),
+  axis.text.y = element_text(color = "black",
+                             margin = margin(t = 0, r = 4, b = 0, l = 0)),
+  axis.title.y = element_text(angle = 90, size = 13,
+                              margin = margin(t = 0, r = 10, b = 0, l = 0)),
+  axis.title.x = element_text(angle = 0, size = 13,
+                              margin = margin(t = 10, r = 0, b = 0, l = 0)),
+  strip.text = element_text(color = "black", face = "bold", hjust = 0),
+  strip.placement = "outside"
+)
+
+
 #####################
 #     FUNCTIONS     #
 #####################
@@ -20,7 +54,7 @@ tidyup_dataframe <- function(filename, threshold = 0.4) {
     
     # create a long-format dataframe
     pivot_longer(-X, names_to = "target", values_to = "mapp_score") %>%
-    rename("X" = "source") %>% 
+    rename("source" = "X") %>% 
     
     # filter out rows with mapping scores below the threshold
     filter(mapp_score >= threshold) %>%
@@ -35,8 +69,8 @@ tidyup_dataframe <- function(filename, threshold = 0.4) {
     mutate(edge_id = as.integer(factor(edge_id)),
            name = str_replace(name, "source", "from"),
            name = str_replace(name, "target", "to")) %>%
-    rename("name" = "connector",
-           "value" = "node") %>%
+    rename("connector" = "name",
+           "node" = "value") %>%
     separate(node, into = c("species", "cell"),
              extra = "merge", sep = "_", remove = FALSE) %>%
     select(-cell) %>%
@@ -54,8 +88,8 @@ tidyup_dataframe <- function(filename, threshold = 0.4) {
 # function to produce a sankey plot out of the tidied-up dataframe
 plot_sankey <- function(df) {
   
-  ggplot(data = df, aes(x = species, y = mapp_score,
-             group = node, connector = connector, edge_id = edge_id)) +
+  plot <- ggplot(data = df, aes(x = species, y = mapp_score,
+                                group = node, connector = connector, edge_id = edge_id)) +
     
     geom_point(aes(fill = category), x = Inf, y = Inf,
                col = NA, alpha = 0.5,
@@ -91,6 +125,8 @@ plot_sankey <- function(df) {
                                keyheight = 1.1,
                                default.unit = "cm")) +
     
+    labs(x = "Species") +
+    
     geom_text(data = . %>%
                 filter(str_detect(connector, "from")),
               aes(label = node), cex = 3, hjust = 1, position = pos_text_left, stat = "sankeynode") +
@@ -99,17 +135,15 @@ plot_sankey <- function(df) {
               aes(label = node), cex = 3, hjust = 0, position = pos_text_right, stat = "sankeynode") +
     
     theme_bw(base_size = 12) +
+    theme_for_plots +
     theme(panel.grid.major.y = element_blank(),
-          panel.grid.minor.y = element_blank(),
-          axis.ticks = element_blank(),
-          axis.title = element_blank(),
-          axis.text.x = element_text(face = "italic", margin = margin(8, 0, 0, 0)),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank(),
           axis.text.y = element_blank(),
-          legend.title = element_text(face = "bold", size = 10),
-          legend.text = element_text(size = 10))
+          axis.text.x = element_text(face = "italic"))
+  
+  return(plot)
 }
-
-
 
 get_mappingScore_distribution <- function(filename, experiment = "leiden3Clusters") {
   
@@ -132,9 +166,9 @@ get_mappingScore_distribution <- function(filename, experiment = "leiden3Cluster
 }
 
 
-############################
-#     GENERATE SANKEYS     #
-############################
+#########################################
+#     SANKEYS SYCON VS DEMOSPONGIAE     #
+#########################################
 
 # define grey ranges for sankey edges
 value_intervals <- c(0, 0.25, 0.5, 0.75, 1)
@@ -163,10 +197,10 @@ aquescil_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/AqueSc
   mutate(connector = case_when(connector == "from" ~ "to",
                                connector == "to" ~ "from",
                                TRUE ~ connector),
-         species = case_when(species == "Aque" ~ "Amphimedon\nqueenslandica",
-                             species == "Scil" ~ "Sycon\nciliatum",
+         species = case_when(species == "Aque" ~ "Amphimedon queenslandica",
+                             species == "Scil" ~ "Sycon ciliatum",
                              TRUE ~ species),
-         species = factor(species, levels = c("Sycon\nciliatum", "Amphimedon\nqueenslandica")),
+         species = factor(species, levels = c("Sycon ciliatum", "Amphimedon queenslandica")),
          node = str_replace(node, "Scil_|Aque_", ""),
          node = str_replace_all(node, c("_" = " ",
                                         "Pinaco" = "Pinacocytes",
@@ -175,26 +209,26 @@ aquescil_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/AqueSc
   left_join(cluster_identity, by = join_by("node" == "cluster")) %>%
   mutate(annotation = str_replace_all(annotation, "_[0-9]+$", ""),
          annotation = str_replace_all(annotation, "_", " "))
-aquescil_mapping
+# aquescil_mapping
 aquescil_sankey <- aquescil_mapping %>%
   plot_sankey()
 aquescil_sankey
 
 
 scilslac_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/ScilSlac_leiden3Clusters_100topCells_samapMappingTable.tsv") %>%
-  mutate(species = case_when(species == "Slac" ~ "Spongilla\nlacustris",
-                             species == "Scil" ~ "Sycon\nciliatum",
+  mutate(species = case_when(species == "Slac" ~ "Spongilla lacustris",
+                             species == "Scil" ~ "Sycon ciliatum",
                              TRUE ~ species),
-         species = factor(species, levels = c("Sycon\nciliatum", "Spongilla\nlacustris")),
+         species = factor(species, levels = c("Sycon ciliatum", "Spongilla lacustris")),
          node = str_replace_all(node, c("Slac_10" = "Slac_10",
                                         "Slac_18" = "Slac_18",
-                                        "Slac_15" = "Myopeptido-\ncytes 1",
-                                        "Slac_9" = "Myopeptido-\ncytes 2",
+                                        "Slac_15" = "Myopeptidocytes 1",
+                                        "Slac_9" = "Myopeptidocytes 2",
                                         "Slac_8" = "Slac_8",
                                         "Slac_14" = "Metabolocytes 1",
                                         "Slac_32" = "Slac_32",
                                         "Slac_17" = "Pinacocytes",
-                                        "Slac_24" = "Myopeptido-\ncytes 3",
+                                        "Slac_24" = "Myopeptidocytes 3",
                                         "Slac_13" = "Slac_13",
                                         "Slac_0" = "Archaeocytes 1",
                                         "Slac_22" = "Slac_22",
@@ -210,16 +244,26 @@ scilslac_sankey <- scilslac_mapping %>%
   plot_sankey()
 scilslac_sankey
 
-panel <- ggpubr::ggarrange(aquescil_sankey, scilslac_sankey,
-                           common.legend = TRUE, legend = "right", labels = "AUTO")
+panel_sankeys <- ggpubr::ggarrange(aquescil_sankey, scilslac_sankey,
+                                   common.legend = TRUE, legend = "right", labels = "AUTO")
+panel_sankeys
 
 ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.png",
-       panel, device = "png",
+       panel_sankeys, device = "png",
        width = 12, height = 6, dpi = 300, unit = "in", bg = "white")
 ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.pdf",
-       panel, device = cairo_pdf,
+       panel_sankeys, device = cairo_pdf,
        width = 12, height = 6, dpi = 300, unit = "in", bg = "white")
 
+panel_sankeys <- ggpubr::ggarrange(aquescil_sankey + theme(axis.title.x = element_blank()),
+                                   scilslac_sankey, nrow = 2,
+                                   common.legend = TRUE, legend = "right")
+panel_sankeys
+
+
+#####################################
+#     SANKEYS DEMOSPONGIAE ONLY     #
+#####################################
 
 slacaque_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/AqueSlac_leiden3Clusters_100topCells_samapMappingTable.tsv") %>%
   mutate(species = case_when(species == "Slac" ~ "S. lacustris",
@@ -252,47 +296,140 @@ slacaque_mapping <- tidyup_dataframe("05_SAMap_porifera/01_mapping_scores/AqueSl
                                         "_" = " ")),
          node = str_replace(node, "Aque |Slac ", ""))
 
-slacaque_mapping %>%
-  plot_sankey()
-
-aquescil_mapping %>%
-  add_row(scilslac_mapping %>%
-            mutate(edge_id = edge_id + nrow(aquescil_mapping)/2)) %>%
-  plot_sankey()
+# slacaque_mapping %>%
+#   plot_sankey()
 
 
-ScilSlac_sankey <- fromTable_toSankey(
-  "05_SAMap_porifera/01_mapping_scores/ScilSlac_leiden3Clusters_100topCells_samapMappingTable.tsv",
-  "Scil", "Slac", "Sycon", "Spongilla", 0.4
-)
-ScilSlac_sankey
+####################################
+#     BOXPLOTS WITH CNIDARIANS     #
+####################################
 
-AqueScil_sankey <- fromTable_toSankey(
-  "05_SAMap_porifera/01_mapping_scores/AqueScil_leiden3Clusters_100topCells_samapMappingTable.tsv",
-  "Scil", "Aque", "Sycon", "Amphimedon", 0.4
-)
-AqueScil_sankey
+comparisons <- c("Porifera vs Cnidaria",
+                 "Within Porifera",
+                 "Within Cnidaria")
 
-AqueSlac_sankey <- fromTable_toSankey(
-  "05_SAMap_porifera/01_mapping_scores/AqueSlac_leiden3Clusters_100topCells_samapMappingTable.tsv",
-  "Slac", "Aque", "Spongilla", "Amphimedon", 0.4
-)
-AqueSlac_sankey
+colors <- list(main  = setNames(c("#ffd166", "#ef476f", "#26547c"), comparisons),
+               alpha = setNames(c("#f6e4ac", "#f98db3", "#8797a4"), comparisons))
 
-panel <- ggpubr::ggarrange(ScilSlac_sankey, AqueScil_sankey, AqueSlac_sankey,
-                  nrow = 3, common.legend = TRUE, legend = "right")
-panel
+# read in mapping scores
+df_stitched_samap <- read.table("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
+                                header = TRUE, sep = "\t") %>%
+  
+  # create a long-format dataframe
+  pivot_longer(-X, names_to = "target_ID", values_to = "mapp_score") %>%
+  rename("source_ID" = "X") %>% 
+  
+  # filter out rows with mapping scores below the threshold
+  filter(mapp_score >= 0.4) %>%
+  
+  # keep just one mapping of each pair   
+  mutate(pair = paste(pmin(source_ID, target_ID), pmax(source_ID, target_ID), sep = "_")) %>%
+  distinct(pair, .keep_all = TRUE) %>%
+  select(source_ID, target_ID, mapp_score) %>%
+  
+  separate(source_ID, into = c("source_species", "source_cell"),
+           extra = "merge", sep = "_", remove = FALSE) %>%
+  separate(target_ID, into = c("target_species", "target_cell"),
+           extra = "merge", sep = "_", remove = FALSE) %>%
+  
+  mutate(species_pair = paste0(source_species, "_", target_species),
+         category_broad = case_when(species_pair %in% c("Aque_Scil", "Aque_Slac",
+                                                        "Slac_Scil") ~ "Within Porifera",
+                                    
+                                    species_pair %in% c("Hvul_Nvec", "Hvul_Xesp",
+                                                        "Hvul_Spis", "Nvec_Xesp",
+                                                        "Nvec_Spis", "Xesp_Hvul",
+                                                        "Xesp_Nvec", "Xesp_Spis",
+                                                        "Spis_Hvul", "Spis_Nvec",
+                                                        "Spis_Xesp") ~ "Within Cnidaria",
+                                    
+                                    TRUE ~ "Porifera vs Cnidaria"), 
+         category_broad = as_factor(category_broad),
+         category_broad = relevel(category_broad, ref = "Within Porifera")) %>%
+  arrange(mapp_score) %>%
+  group_by(category_broad) %>%
+  mutate(rank = row_number(),
+         survival = 1 - rank / n(),
+         # survival = case_when(survival == 0 ~ 2e-16,
+         #                      TRUE ~ survival)
+         high_score = mapp_score > 0.9)
 
-# save the sankey
-ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.pdf",
-     plot = panel, device = cairo_pdf,
-     dpi = 300, height = 14, width = 8, units = ("in"), bg = 'white')
-ggsave("05_SAMap_porifera/03_plots/samap_sankey_panel.png",
-       plot = panel, device = "png",
-       dpi = 300, height = 14, width = 8, units = ("in"), bg = 'white')
 
+wilcox_comparisons <- combn(levels(df_stitched_samap$category_broad), 2, simplify = FALSE)
+pairwise.wilcox.test(df_stitched_samap$mapp_score, df_stitched_samap$category_broad, p.adj = "bonferroni")
 
-ScilBlobSlac_sankey <- fromTable_toSankey(
-  "13_recluster_blob/04_SAMap/ScSlac_leiden3Clusters_0topCells_samapMappingTable.tsv",
-  "Scil", "Slac", "Sycon", "Spongilla", 0.2
-)
+cnidaria_scores <- subset(df_stitched_samap, category_broad == "Within Cnidaria")$mapp_score
+porifera_scores <- subset(df_stitched_samap, category_broad == "Within Porifera")$mapp_score
+cnidariaVSporifera_scores <- subset(df_stitched_samap, category_broad == "Porifera vs Cnidaria")$mapp_score
+
+ks.test(porifera_scores, cnidaria_scores, alternative = "greater")
+ks.test(porifera_scores, cnidariaVSporifera_scores, alternative = "greater")
+effsize::cliff.delta(cnidaria_scores, porifera_scores)
+
+boxplot <- df_stitched_samap %>%
+  ggplot(aes(x = mapp_score, y = category_broad, col = category_broad, fill = category_broad)) +
+  geom_jitter(size = 2, height = 0.4) +
+  
+  scale_color_manual(values = colors$alpha) +
+
+  geom_boxplot(width = 0.4, col = "black", linewidth = 0.7,
+               outliers = FALSE, staplewidth = 0.5) +
+  
+  # stat_compare_means(comparisons = wilcox_comparisons, method = "wilcox.test",
+  #                    symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), 
+  #                                       symbols = c("****", "***", "**", "*", "ns"))) +
+  
+  scale_fill_manual(values = colors$main) +
+  scale_y_discrete(limits = rev,
+                   labels = c(paste0("Within\nCnidaria\n(n = ", length(cnidaria_scores), ")"),
+                              paste0("Porifera vs\nCnidaria\n(n = ", length(cnidariaVSporifera_scores), ")"),
+                              paste0("Within\nPorifera\n(n = ", length(porifera_scores), ")"))) +
+
+  labs(x = "Mapping scores", y = "Comparison") +
+
+  theme_bw(base_size = 12) +
+  theme_for_plots +
+  theme(legend.position = "none",
+        axis.title.y = element_blank())
+
+boxplot
+
+survival_plot <- df_stitched_samap %>%
+  ggplot(aes(x = mapp_score, y = survival)) +
+  
+  geom_line(aes(color = category_broad), linewidth = 1) +
+  scale_color_manual(values = colors$main) +
+  
+  # geom_text(x = 0.55, y = 0.9, label = "KS test, p = 0.002") +
+  
+  labs(x = "Mapping score", y = "P(score ≥ x)")  +
+  
+  guides(color = guide_legend(keyheight = 0.8,
+                              default.unit = "cm")) +
+  
+  theme_bw(base_size = 12) +
+  theme_for_plots +
+  theme(legend.position = "inside",
+        legend.position.inside = c(0.72, 0.82),
+        legend.background = element_rect(fill = "white",
+                                         colour = "black", linewidth = .4),
+        legend.title = element_blank(),
+        legend.margin = margin(0, 6, 0, 3, "mm"))
+survival_plot
+
+panel_statistics <- ggarrange(boxplot + theme(axis.title.x = element_blank()),
+                              survival_plot,
+                              nrow = 2) +
+  theme(plot.margin = margin(0, 0, 0, 10, "mm"))
+
+final_panel <- ggarrange(panel_sankeys, panel_statistics,
+                         labels = "AUTO", font.label = list(size = 20),
+                         align = "hv", widths = c(1, 0.7))
+final_panel
+
+ggsave("05_SAMap_porifera/03_plots/final_panel_fig3.png",
+       final_panel, device = "png",
+       width = 14/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
+ggsave("05_SAMap_porifera/03_plots/final_panel_fig3.pdf",
+       final_panel, device = cairo_pdf,
+       width = 14/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
