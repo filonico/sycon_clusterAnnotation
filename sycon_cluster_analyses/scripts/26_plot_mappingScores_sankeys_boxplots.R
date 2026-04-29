@@ -145,7 +145,7 @@ plot_sankey <- function(df) {
   return(plot)
 }
 
-compute_score_distribution <- function(filename, threshold) {
+compute_score_distribution <- function(filename, threshold, subsample = TRUE) {
   
   df <- read.table(filename,
                    header = TRUE, sep = "\t") %>%
@@ -162,11 +162,13 @@ compute_score_distribution <- function(filename, threshold) {
     distinct(pair, .keep_all = TRUE) %>%
     select(source_ID, target_ID, mapp_score) %>%
     
+    # create additional columns to store species and cell names for source and target
     separate(source_ID, into = c("source_species", "source_cell"),
              extra = "merge", sep = "_", remove = FALSE) %>%
     separate(target_ID, into = c("target_species", "target_cell"),
              extra = "merge", sep = "_", remove = FALSE) %>%
     
+    # add compariosn groups to plot boxplots
     mutate(species_pair = paste0(source_species, "_", target_species),
            category_broad = case_when(species_pair %in% c("Aque_Scil", "Aque_Slac",
                                                           "Slac_Scil") ~ "Within Porifera",
@@ -181,6 +183,8 @@ compute_score_distribution <- function(filename, threshold) {
                                       TRUE ~ "Porifera vs Cnidaria"), 
            category_broad = as_factor(category_broad),
            category_broad = relevel(category_broad, ref = "Within Porifera")) %>%
+
+    # compute survival scores
     arrange(mapp_score) %>%
     group_by(category_broad) %>%
     mutate(rank = row_number(),
@@ -188,6 +192,16 @@ compute_score_distribution <- function(filename, threshold) {
            # survival = case_when(survival == 0 ~ 2e-16,
            #                      TRUE ~ survival)
            high_score = mapp_score > 0.9)
+  
+  
+  if (subsample) {
+    porifera_n_scores <- length(subset(df,
+                                       category_broad == "Within Porifera")$mapp_score)
+    
+    df <- df %>%
+      slice_sample(n = porifera_n_scores)
+    }
+  
   
   return(df)
 }
@@ -404,7 +418,15 @@ colors <- list(main  = setNames(c("#ffd166", "#ef476f", "#26547c"), comparisons)
                alpha = setNames(c("#f6e4ac", "#f98db3", "#8797a4"), comparisons))
 
 df_stitched_samap <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
-                                                0.4)
+                                                0.4, subsample = FALSE)
+
+df_stitched_samap
+
+df_stitched_samap <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
+                                                0.4, subsample = TRUE)
+
+df_stitched_samap
+
 
 wilcox_comparisons <- combn(levels(df_stitched_samap$category_broad), 2, simplify = FALSE)
 pairwise.wilcox.test(df_stitched_samap$mapp_score, df_stitched_samap$category_broad, p.adj = "bonferroni")
@@ -425,7 +447,8 @@ survival_plot_threshold04
 
 panel_statistics <- ggarrange(boxplot_threshold04 + theme(axis.title.x = element_blank()),
                               survival_plot_threshold04,
-                              nrow = 2)
+                              nrow = 2, align = "hv")
+panel_statistics
 
 ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.png",
        panel_statistics, device = "png",
@@ -436,6 +459,7 @@ ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.pdf",
 
 panel_statistics <- panel_statistics +
   theme(plot.margin = margin(0, 0, 0, 10, "mm"))
+
 
 ######################################
 #     FINAL PANEL FOR MANUSCRIPT     #
@@ -483,3 +507,91 @@ ggsave("05_SAMap_porifera/03_plots/statistics_threshold0.png",
 ggsave("05_SAMap_porifera/03_plots/statistics_threshold0.pdf",
        panel_statistics_threshold0, device = cairo_pdf,
        width = 6/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
+
+
+####################
+#     HEATMAPS     #
+####################
+
+
+heatmap_samap <- read.table("05_SAMap_porifera/01_mapping_scores/AqueScilSlac_leiden3Clusters_100topCells_samapMappingTable.tsv",
+                            header = TRUE, sep = "\t") %>%
+  
+  # create a long-format dataframe
+  pivot_longer(-X, names_to = "target_ID", values_to = "mapp_score") %>%
+  rename("source_ID" = "X") %>% 
+  
+  # filter out rows with mapping scores below the threshold
+  filter(mapp_score > 0,
+         str_detect(source_ID, "Scil"),
+         str_detect(target_ID, "Slac|Aque")) %>% 
+  
+  separate(source_ID, into = c("source_species", "source_cell"), sep = "_") %>%
+  
+  complete(source_cell, target_ID, fill = list(mapp_score = 0, source_species = "Scil")) %>%
+  
+  mutate(source_cell = factor(source_cell, levels = seq(0, 32)),
+         
+         target_species = sub("_.*", "", target_ID),
+         target_cell = str_replace_all(target_ID, c("Slac_0$" = "Archaeocytes S1", "Slac_1$" = "Archaeocytes S2",
+                                                    "Slac_2$" = "Archaeocytes S3", "Slac_3$" = "Archaeocytes S4",
+                                                    "Slac_4$" = "Archaeocytes S5", "Slac_5$" = "Archaeocytes S4",
+                                                    "Slac_9$" = "Myopeptidocytes", "Slac_14$" = "Metabolocytes",
+                                                    "Slac_15$" = "Myopeptidocytes", "Slac_17$" = "Pinacocytes",
+                                                    "Slac_21$" = "Archaeocytes S6", "Slac_23$" = "Archaeocytes-like",
+                                                    "Slac_24$" = "Myopeptidocytes", "Slac_25$" = "Choanocytes/-blasts",
+                                                    "Slac_30$" = "Sclerocytes", "Slac_31$" = "Amoebocytes/Neuroid",
+                                                    "Slac_35$" = "Basopinacocytes", "Slac_36$" = "Mesocytes",
+                                                    "Slac_37$" = "Granulocytes-like", "Slac_41$" = "Mesocytes")),
+         target_cell = str_replace_all(target_cell, "Slac_", ""),
+         target_cell = str_replace_all(target_cell, c("Aque_Pinaco_" = "Pinacocytes ", "Aque_Archaeo_" = "Archaeocytes A",
+                                                      "Aque_Collagen" = "Collagen cells",
+                                                      "Aque_Choano_to_pinaco" = "Choano- to pinacocytes",
+                                                      "Aque_Choanocytes_" = "Choanocytes ", "Aque_Sperm" = "Sperm",
+                                                      "Aque_Aspcizin" = "Aspcizin", "Aque_Bactericidial" = "Bactericidial cells",
+                                                      "Aque_Unk_" = "Unknown ", "Aque_" = "")),
+         target_cell = factor(target_cell, levels = c(
+                    "Archaeocytes A1", "Archaeocytes A2", "Choanocytes 1", "Choanocytes 2", "Aspcinzin", "Bactericidal",
+                    "Choano- to pinacocytes", "Collagen cells", "Pinacocytes 1", "Pinacocytes 2", "Sperm", "Unknown 1", "Unknown 2",
+                    paste0("Archaeocytes S", seq(1, 6)), "Archaeocytes-like", "Choanocytes/-blasts", "Amoebocytes/Neuroid",
+                    "Basopinacocytes", "Granulocytes-like", "Mesocytes", "Metabolocytes", "Myopeptidocytes", "Pinacocytes",
+                    "Sclerocytes", 6, 7, 8, seq(10, 13), 16, seq(18, 20), 22, seq(26, 29), 32, 33, 34, 38, 39, 40, 42))) %>%
+  
+  ggplot(aes(x = source_cell, y = target_cell, fill = mapp_score)) +
+  geom_tile() +
+  
+  # scale_fill_gradient2(high = "#f1f1f1", mid = "#8da3ca", low = "#6b0077",
+  #                      midpoint = 0.5, limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  
+  scale_fill_viridis(option = "cividis", limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+  scale_x_discrete(sec.axis = dup_axis(name = "")) +
+  scale_y_discrete(limits = rev) +
+  labs(x = "Sycon ciliatum", fill = "Mapping\nscore") +
+  
+  facet_wrap(~ target_species, scales = "free_y", space = "free_y",
+             strip.position = "right",
+             labeller = labeller(target_species = as_labeller(
+               c("Aque" =  "Amphimedon\nqueenslandica",
+                 "Slac" = "Spongilla\nlacustris")
+               ))) +
+  
+  theme_for_plots +
+  
+  theme(panel.background = element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.x = element_text(face = "italic", size = 10),
+        axis.title.y = element_blank(),
+        legend.title = element_text(margin = margin(b = 15)),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text.y = element_text(face = "italic", size = 10, hjust = 0.5),
+        strip.clip = "off")
+heatmap_samap
+
+ggsave("05_SAMap_porifera/03_plots/samap_heatmap.png",
+       heatmap_samap, device = "png",
+       width = 12/1.1, height = 8/1.1, dpi = 300, unit = "in", bg = "white")
+ggsave("05_SAMap_porifera/03_plots/samap_heatmap.pdf",
+       heatmap_samap, device = cairo_pdf,
+       width = 12/1.1, height = 8/1.1, dpi = 300, unit = "in", bg = "white")

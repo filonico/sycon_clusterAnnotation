@@ -516,7 +516,7 @@ module_GO_labels <- list(
   list(list(GO = c("GO:0006915", "GO:0007166", "GO:0043122", "GO:0071356"), label = "Cell adhesion\nand signalling"))
 )
 
-# denerate all plots in one go
+# generate all plots in one go
 module_mds <- map2(module_enrich_files, module_GO_labels, plot_semantic_mds)
 names(module_mds) <- names(module_umaps)
 module_mds <- lapply(module_mds, function(p)
