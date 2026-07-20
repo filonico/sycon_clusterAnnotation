@@ -563,7 +563,10 @@ heatmap_samap <- read.table("05_SAMap_porifera/01_mapping_scores/AqueScilSlac_le
   # scale_fill_gradient2(high = "#f1f1f1", mid = "#8da3ca", low = "#6b0077",
   #                      midpoint = 0.5, limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
   
-  scale_fill_viridis(option = "cividis", limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+  # scale_fill_viridis(option = "cividis", limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+  scale_fill_distiller(palette = "OrRd", direction = 1) +
+  # scale_fill_gradient2(low = "#F6F6F4", mid = "#E2916F", high = "#64001C",
+  #                      midpoint = 0.5) +
   scale_x_discrete(sec.axis = dup_axis(name = "")) +
   scale_y_discrete(limits = rev) +
   labs(x = "Sycon ciliatum", fill = "Mapping\nscore") +
@@ -577,8 +580,7 @@ heatmap_samap <- read.table("05_SAMap_porifera/01_mapping_scores/AqueScilSlac_le
   
   theme_for_plots +
   
-  theme(panel.background = element_blank(),
-        axis.line = element_blank(),
+  theme(panel.border = element_blank(),
         axis.ticks = element_blank(),
         axis.title.x = element_text(face = "italic", size = 10),
         axis.title.y = element_blank(),

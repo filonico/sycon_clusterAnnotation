@@ -5,8 +5,8 @@ setwd("/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses/
 suppressMessages({library(tidyverse)
   library(hdWGCNA)
   library(SeuratExtend)
-  library(GOSemSim)
-  library(smacof)})
+  library(GOSemSim)})
+  # library(smacof)})
 
 
 ######################
@@ -47,11 +47,12 @@ plot_module_UMAP <- function(module_name, color_name) {
     geom_vline(xintercept = seq(-5, 10, 5), col = "grey95") +
     geom_hline(yintercept = seq(-10, 10, 5), col = "grey95") +
     geom_point(aes(col = expr), size = 1.5) +
-    
-    scale_color_gradient2(low = "grey95", mid = "grey80", high = color_name,
-                          midpoint = 0, limits = c(-max_abs, max_abs),
-                          breaks = c(-max_abs, max_abs), labels = c("−", "+"))
   
+    scale_color_gradient(low = "#f5f8ff", high = color_name)
+  
+    # scale_color_gradient2(low = "white", mid = "#e5ecfb", high = color_name,
+    #                       midpoint = 0)
+    # 
   return(p)
 }
 
@@ -243,7 +244,7 @@ theme_for_plots <- theme(
 #     hdWGCNA with standard pipeline     #
 ##########################################
 
-DefaultAssay(Sycon) <- "SCT"
+DefaultAssay(Sycon) <- "RNA"
 Sycon
 
 # standard hdWGCNA pipeline
@@ -332,7 +333,7 @@ Sycon@meta.data <- cbind(Sycon@meta.data, hMEs)
 # here, plotted ranges are not corrected, thus not symmetrical
 RNA_umap_list <- list()
 for (i in names(RNA_featurePlot_list)) {
-  RNA_umap_list[[i]] <- plot_module_UMAP(i, i)
+  RNA_umap_list[[i]] <- plot_module_UMAP(i, i) + theme_bw()
 }
 
 # plot patchworked plots
@@ -427,13 +428,15 @@ SeuratExtend:::color_iwh("intense", n = 5)
 #"#c7956d" "#8fae6c" "#6db7ad" "#879dcf" "#cc88ad"
 # "#b88340" "#9749ba" "#659d56" "#b64a56" "#757bad"
 
-modules <- c("yellow","turquoise","green","brown","red")
-cols <- c("#e1c23a","#0faef2","#1fde22","#aa2831","#e0080b")
+modules <- c("yellow","turquoise","blue","green","brown","red")
+# cols <- c("#e1c23a","#0faef2","#0f4ff2","#1fde22","#aa2831","#e0080b") # these colors to keep the correspondence with hdWGCNA scheme
+cols <- c("#48B1A7","#747CC9","#67A64E","#CA5F3E","#C8577B","#67A64E") # these colors to keep the correspondence with cluster annotations
+
 
 module_umaps <- Map(plot_module_UMAP, modules, cols)
 module_umaps <- lapply(module_umaps, function(p)
   p +
-    scale_y_continuous(breaks = seq(-10, 5, 5)) +
+    scale_y_continuous(breaks = seq(-10, 10, 5)) +
     coord_cartesian(clip = "off") +
     theme_bw() +
     theme(legend.position = "none",
@@ -446,28 +449,75 @@ module_umaps <- lapply(module_umaps, function(p)
           )
 )
 
-module_umaps[[1]] <- module_umaps[[1]] +
-  annotate("text", x = -7.3, y = 11.5, hjust = 0,
-           label = "Oocytes/early embryos")
+module_umaps$red <- module_umaps$red +
+  annotate("text", x = -7.3, y = 9.9, hjust = 0,
+           label = "Module 1")
 
-module_umaps[[2]] <- module_umaps[[2]] +
-  annotate("text", x = -7.3, y = 11.5, hjust = 0,
-           label = "Embryos")
+module_umaps$blue <- module_umaps$blue +
+  annotate("text", x = -7.3, y = 9.9, hjust = 0,
+           label = "Module 2")
 
-module_umaps[[3]] <- module_umaps[[3]] +
-  annotate("text", x = -7.3, y = 11.5, hjust = 0,
-           label = "Choanocytes")
+module_umaps$green <- module_umaps$green +
+  annotate("text", x = -7.3, y = 9.9, hjust = 0,
+           label = "Module 3")
 
-module_umaps[[4]] <- module_umaps[[4]] +
-  annotate("text", x = -7.3, y = 11.5, hjust = 0,
-           label = "Sclerocytes")
-
-module_umaps[[5]] <- module_umaps[[5]] +
-  annotate("text", x = -7.3, y = 11.5, hjust = 0,
-           label = "Choanocytes") +
+module_umaps$brown <- module_umaps$brown +
+  annotate("text", x = -7.3, y = 9.9, hjust = 0,
+           label = "Module 4") +
   scale_x_continuous(breaks = seq(0, 10, 5)) +
   scale_y_continuous(breaks = seq(-5, 5, 5)) +
   umap_coord_x + umap_coord_y
+
+module_umaps$yellow <- module_umaps$yellow +
+  annotate("text", x = -7.3, y = 9.9, hjust = 0,
+           label = "Module 5")
+
+module_umaps$turquoise <- module_umaps$turquoise +
+  annotate("text", x = -7.3, y = 9.9, hjust = 0,
+           label = "Module 6")
+  
+  
+# module_umaps[[1]] <- module_umaps[[1]] +
+#   annotate("text", x = -7.3, y = 11.5, hjust = 0,
+#            label = "Oocytes/early embryos")
+# 
+# module_umaps[[2]] <- module_umaps[[2]] +
+#   annotate("text", x = -7.3, y = 11.5, hjust = 0,
+#            label = "Embryos")
+# 
+# module_umaps[[3]] <- module_umaps[[3]] +
+#   annotate("text", x = -7.3, y = 11.5, hjust = 0,
+#            label = "Choanocytes")
+# 
+# module_umaps[[4]] <- module_umaps[[4]] +
+#   annotate("text", x = -7.3, y = 11.5, hjust = 0,
+#            label = "Sclerocytes")
+# 
+# module_umaps[[5]] <- module_umaps[[5]] +
+#   annotate("text", x = -7.3, y = 11.5, hjust = 0,
+#            label = "Choanocytes") +
+#   scale_x_continuous(breaks = seq(0, 10, 5)) +
+#   scale_y_continuous(breaks = seq(-5, 5, 5)) +
+#   umap_coord_x + umap_coord_y
+
+panel_def <-
+  module_umaps$red +
+  module_umaps$blue +
+  module_umaps$green +
+  module_umaps$brown +
+  module_umaps$yellow + 
+  module_umaps$turquoise +
+  patchwork::plot_layout(nrow = 2) +
+  theme(plot.tag = element_text(size = 14, face = "bold"),
+        plot.tag.location = "plot")
+panel_def
+
+ggsave("12_hdWGCNA/01_RNA_assay/fig2_hdWGCNA_new.png",
+       panel_def, device = "png",
+       height = 5.133, width = 7.630, units = "in", dpi = 300, bg = "white")
+ggsave("12_hdWGCNA/01_RNA_assay/fig2_hdWGCNA_new.pdf",
+       panel_def, device = cairo_pdf,
+       height = 5.133, width = 7.630, units = "in", dpi = 300, bg = "white")
 
 
 #######################################
@@ -572,184 +622,3 @@ panel_def <-
 ggsave("fig2.png",
        panel_def, device = "png",
        width = 10/1.5, height = 22/1.5, units = "in", dpi = 300, bg = "white")
-
-
-# Sycon@reductions$umap@cell.embeddings %>%
-#   as_tibble(rownames = NA) %>%
-#   rownames_to_column() %>%
-# 
-#   # then add information from meta data, including the score for each module
-#   left_join(Sycon@meta.data %>% rownames_to_column()) %>%
-#   select(rowname, UMAP_1, UMAP_2, red, blue, yellow, green, turquoise, brown) %>%
-# 
-#   # pivot data longer
-#   pivot_longer(-c(rowname, UMAP_1, UMAP_2), names_to = "module", values_to = "expr") %>%
-#   arrange(expr) %>%
-#   # group_by(module) %>%
-# 
-#   # plot data
-#   ggplot(aes(UMAP_1, UMAP_2)) +
-#   geom_point(aes(col = expr),
-#              # alpha = 0.5,
-#              size = 0.7
-#   ) +
-# 
-#   # define color gradient rules
-#   # note that in the original hdWGCNA script they make the range symmetrical
-#   # is it legit? Isn't this affecting visualization?
-#   # here, we do not make the range symmetrical
-#   # scale_color_gradient2(low = "grey75", mid = "grey95", high = module_name,
-#   #                       midpoint = 0) +
-#   labs(x = "UMAP 1", y = "UMAP 2",
-#        color = "Module\nsignature") +
-# 
-#   coord_cartesian(clip = "off") +
-# 
-#   facet_wrap(. ~ module, ncol = 1) +
-# 
-#   theme_bw(base_size = 12) +
-#   theme_for_UMAPS +
-#   theme(plot.title = element_text(hjust = 0),
-#         plot.margin = margin(5, 5, 10, 8, "mm"),
-#         axis.line = element_line(),
-#         strip.background = element_blank(),
-#         strip.text = element_blank(),
-#         legend.position = "none")
-
-
-# ##########################################
-# #     hdWGCNA with SCTransformed data    #
-# ##########################################
-# 
-# # THE DEVELOPERS DO NOT SUGGEST USING SCTransformed DATA
-# DefaultAssay(Sycon) <- "SCT"
-# 
-# Sycon <- Sycon %>%
-#   SetupForWGCNA(features = VariableFeatures(Sycon),
-#                 wgcna_name = "SCT_variableFeature")
-# 
-# Sycon@misc$active_wgcna <- "SCT_variableFeature"
-# 
-# # compute metacells by splitting both by samples and seurat clusters
-# # reduce number of cells to consider a cluster and the number of overlapping cells to 10
-# # otherwise it get rids of cluster 28..32
-# Sycon <- Sycon %>%
-#   MetacellsByGroups(group.by = c("orig.ident", "seurat_clusters"),
-#                     min_cells = 10, k = 10,
-#                     ident.group = 'seurat_clusters',
-#                     slot = "scale.data",
-#                     assay = "SCT",
-#                     wgcna_name = "SCT_variableFeature")
-# 
-# # set up expr matrix
-# Sycon <- Sycon %>%
-#   SetDatExpr(assay = "SCT")
-# 
-# # test different soft power thresholds
-# Sycon <- Sycon %>%
-#   TestSoftPowers()
-# plots <- Sycon %>%
-#   PlotSoftPowers()
-# print(patchwork::wrap_plots(plots, ncol=2))
-# 
-# # build the co-expr network
-# # construct co-expression network
-# Sycon <- Sycon %>%
-#   ConstructNetwork(tom_outdir = "12_hdWGCNA/02_SCT_assay/",
-#                    tom_name = "SCT_variableFeatures")
-# 
-# # compute module eigengenes and connectivity
-# Sycon <- Sycon %>%
-#   ModuleEigengenes()
-# Sycon <- Sycon %>%
-#   ModuleConnectivity()
-# 
-# # make a featureplot of hMEs for each module
-# # here, plotted ranges are symmetrical (as hdWGCNA default settings)
-# SCT_featurePlot_list <- Sycon %>%
-#   ModuleFeaturePlot(features = "hMEs",
-#                     order = TRUE)
-# 
-# print(patchwork::wrap_plots(SCT_featurePlot_list, ncol = 4))
-# 
-# MEs <- Sycon %>%
-#   GetMEs(harmonized = TRUE)
-# 
-# modules <- GetModules(Sycon)
-# mods <- levels(modules$module); mods <- mods[mods != 'grey']
-# 
-# modules <- GetModules(Sycon)
-# mods <- levels(modules$module); mods <- mods[mods != 'grey']
-# 
-# Sycon@meta.data <- cbind(Sycon@meta.data, MEs)
-# 
-# 
-# plot_module_UMAP("blue")
-# 
-# umap_list <- list()
-# for (i in levels(Sycon@misc$SCT$wgcna_degrees$module)) {
-#   if (i != "grey") {
-#     umap_list[[i]] <- plot_module_UMAP(i) 
-#   }
-# }
-# 
-# umaps <- print(patchwork::wrap_plots(umap_list, ncol = 4))
-# 
-# ggsave("12_hdWGCNA/gene_module_umaps.pdf",
-#        umaps,  device = cairo_pdf,
-#        dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white'
-# )
-# 
-# ggsave("12_hdWGCNA/gene_module_umaps.png",
-#        umaps,  device = "png",
-#        dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white'
-# )
-# 
-# dotplot <- Sycon %>%
-#   DotPlot(features = mods, group.by = 'seurat_clusters')
-# # RotatedAxis()
-# 
-# dotplot_custom <- dotplot$data %>%
-#   mutate(id = factor(id,
-#                      levels = c("32", "27", "24", "19", "17",
-#                                 "30", "25", "15",
-#                                 "26", "21",
-#                                 "23", "18", "16", "14", "11",
-#                                 "31", "29", "28", "22", "20", "13", "12",
-#                                 seq(10, 0, -1))),
-#          features.plot = factor(features.plot,
-#                                 levels = c("blue", "turquoise", "brown", "green", "yellow",
-#                                            "pink", "red", "black"))) %>%
-#   filter(pct.exp > 0) %>%
-#   ggplot(aes(features.plot, id)) +
-#   geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
-#   
-#   scale_y_discrete(limits = rev) +
-#   scale_size_continuous(range = c(1,7)) +
-#   
-#   xlab("gene co-expression\nmodules") +
-#   ylab("Cell clusters") +
-#   labs(size = "Percent\nexpressed", fill = "Average\nexpression") +
-#   
-#   scale_fill_viridis_c(option = "plasma") +
-#   
-#   theme(strip.placement = "outside",
-#         strip.background = element_blank(),
-#         strip.text = element_text(face = "bold", size = 8),
-#         strip.clip = "off",
-#         axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
-#         panel.border = element_rect(color = "#4f4f4f", fill = NA, linewidth = 0.8),
-#         panel.background = element_blank(),
-#         panel.grid = element_line(color = "#dbdbdb"))
-# 
-# dotplot_custom
-# 
-# ggsave("12_hdWGCNA/gene_module_dotplot.pdf",
-#        dotplot_custom,  device = cairo_pdf,
-#        dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white'
-# )
-# 
-# ggsave("12_hdWGCNA/gene_module_dotplot.png",
-#        dotplot_custom,  device = "png",
-#        dpi = 300, height = 6, width = 12, units = ("in"), bg = 'white'
-# )

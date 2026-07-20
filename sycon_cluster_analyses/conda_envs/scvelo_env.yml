@@ -1,0 +1,22 @@
+name: scvelo_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy<2
+  - scipy<1.13
+  - matplotlib=3.7.3
+  - pandas
+  - scikit-learn
+  - numba
+  - pip
+  - pip:
+      - scanpy<1.10
+      - anndata
+      - scvelo
+      - python-igraph
+      - leidenalg
+      - ipykernel
+      - jupyter

@@ -4,7 +4,6 @@ setwd("/lustre/alice3/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_clu
 
 library(Seurat)
 library(SeuratExtend)
-library(DESeq2)
 library(tidyverse)
 
 
@@ -224,14 +223,14 @@ cluster_identity <- c("0" = "Uncertain_0", # uncertain identity (choanos + devel
                       "22" = "Unknown_22",
                       "23" = "Choanocytes_23",
                       "24" = "Oocytes/early_embryos",
-                      "25" = "Sclerocyte-like_pinacocytes",
+                      "25" = "Sclerocytes",
                       "26" = "Uncertain_26", # uncertain identity (choanos + development)
                       "27" = "Oocytes/early_embryos",
                       "28" = "Unknown_28",
                       "29" = "Unknown_29",
                       "30" = "Accessory_cells",
                       "31" = "Unknown_31",
-                      "32" = "Archaeocyte-like_stem_cells")
+                      "32" = "Oocytes/early_embryos")
                       
 
 cluster_identity_df <- as_tibble(cluster_identity) %>%
@@ -320,7 +319,7 @@ umap_annotated <- umap_annotated_raw@data %>%
                subset(!grepl("Unknown|Uncertain", cluster_identity)),
              aes(colour = as.factor(cluster_identity)), size = 1) +
   
-  scale_color_manual(values = c(SeuratExtend::color_iwh("default", n = 7),
+  scale_color_manual(values = c(SeuratExtend::color_iwh("default", n = 7)[c(1,seq(3,7))],
                                 "grey60", "grey85")) + 
   
   guides(color = guide_legend(override.aes = list(size = 2),
@@ -349,16 +348,16 @@ ggsave("07_notableGenes_clusterAnnotation/cluster_annotation_umaps.png",
 #     PLOT NOTABLE GENES FOR PUBLICATION     #
 ##############################################
 
-notable_gene_names <- data.frame(gene_name = c("AE-like1","βcatA","βcatB","Bra1","Bra2","CA1","CA2",
-                                               "Cdx","Diactinin","DvlA","DvlB","Elav","Eya",
-                                               "FzdA","FzdB","FzdC","FzdD","Gata","Gli","Hedgling",
-                                               "Hex","Hmx","Lrp5/6","MsiA","MsiB","Msx",
-                                               "Nanos","NCBT-like1","NKA","NKB","PaxB","Pl10A","Pl10B",
-                                               "SixA","Smad1/5","Smad4","SmadRa",
-                                               "Sox6","Sox7","SoxB","SoxC","SoxE","SoxF1","SoxF2","Spiculin",
-                                               "TboxA","TboxB","TboxC","TcfA","TcfB",
-                                               "TgfβB","TgfβD","TgfβF","TgfβG","TgfβN","Triactinin","VasaA","VasaB",
-                                               "WntA","WntC","WntD","WntF","WntG","WntI","WntJ","WntL","WntN","WntQ","WntR","WntS","WntT"),
+notable_gene_names <- data.frame(gene_name = c("AE-like-1","βcat-A","βcat-B","Bra-1","Bra-2","CA-1","CA-2",
+                                               "Cdx","Diactinin","Dvl-A","Dvl-B","Elav","Eya",
+                                               "Fzd-A","Fzd-B","Fzd-C","Fzd-D","Gata","Gli","Hedgling",
+                                               "Hex","Hmx","Lrp-5/6","Msi-A","Msi-B","Msx",
+                                               "Nanos","NCBT-like-1","NK-A","NK-B","Pax-B","Pl10-A","Pl10-B",
+                                               "Six-A","Smad-1/5","Smad-4","Smad-Ra",
+                                               "Sox-6","Sox-7","Sox-B","Sox-C","Sox-E","Sox-F1","Sox-F2","Spiculin",
+                                               "Tbox-A","Tbox-B","Tbox-C","Tcf-A","Tcf-B",
+                                               "Tgfβ-B","Tgfβ-D","Tgfβ-F","Tgfβ-G","Tgfβ-N","Triactinin","Vasa-A","Vasa-B",
+                                               "Wnt-A","Wnt-C","Wnt-D","Wnt-F","Wnt-G","Wnt-I","Wnt-J","Wnt-L","Wnt-N","Wnt-Q","Wnt-R","Wnt-S","Wnt-T"),
                                  gene_ID = c("g8503","g13719","g4975","g3032","g3118","g782","g11209","g8932",
                                              NA,"g949",NA,"g7460","g8356",NA,NA,"g4648","g3042","g2248","g8905",
                                              NA,"g8162","g9066","g13476","g11831","g12083","g9084","g3613","g10087",
@@ -375,13 +374,14 @@ dotplot_markers_publication <- p$data %>%
   
   # sort y axis values to match cell types
   mutate(Var2 = factor(Var2, levels = c(
-    "1","7","11","16","23","21","100",
-    "15","101",
-    "25","102",
-    "17","19","24","27","32","103",
-    "30","104",
-    "0","3","4","5","8","9","10","12","13","22","26","28","29","31","105",
-    "2","6","14","18","20"
+    "1","7","11","16","23",
+    "21",
+    "30",
+    "25",
+    "17","19","24","27", "32",
+    "15",
+    "0","5","10","26",
+    "2","3","4","6","8","9","12","13","14","18","20","22","28","29","31"
   ))) %>%
   
   # remove genes with 0 expression in cells
@@ -392,7 +392,7 @@ dotplot_markers_publication <- p$data %>%
   filter(!is.na(gene_name)) %>%
   
   # remove genes that are not significant in any cell
-  filter(! gene_name %in% c("SoxC", "SoxF1", "Lrp5/6", "WntD", "WntS", "MsiA", "Gata", "TcfA", "βcatA", "Bra2", "Pl10B")) %>%
+  filter(! gene_name %in% c("Sox-C", "Sox-F1", "Lrp-5/6", "Wnt-D", "Wnt-S", "Msi-A", "Gata", "Tcf-A", "βcat-A", "Bra-2", "Pl10-B")) %>%
   
   # add cell cluster names
   left_join(cluster_identity_df, by = join_by("group" == "cluster_ID")) %>%
@@ -401,10 +401,10 @@ dotplot_markers_publication <- p$data %>%
          value = str_replace(value, "-like ", "-like\n"),
          value = str_replace(value, "/", "/\n"),
          value = str_replace(value, "and ", "and\n"),
-         value = factor(value, levels = c("Choanocytes", "Oocytes/\nearly embryos", "Archaeocyte-like\nstem cells",
-                                          "Metabolocyte- and\npinacocyte-like\nearly embryos",
-                                          "Sclerocyte-like\npinacocytes", "Myopeptidocyte-like\nchoanocytes",
-                                          "Accessory cells", "Uncertain", "Unknown"))) %>%
+         value = factor(value, levels = c("Choanocytes", "Myopeptidocyte-like\nchoanocytes",
+                                          "Accessory cells", "Sclerocytes",
+                                          "Oocytes/\nearly embryos", "Metabolocyte- and\npinacocyte-like\nearly embryos",
+                                          "Uncertain", "Unknown"))) %>%
   rename("cell_identity" = "value") %>%
   
   # add p-values according to FindAllMarkers
@@ -412,21 +412,22 @@ dotplot_markers_publication <- p$data %>%
               select(c(p_val_adj, cluster,gene)), by = join_by("group" == "cluster", "Var1" == "gene"),
             relationship = "many-to-many") %>%
 
-  mutate(gene_name = factor(gene_name, levels = c("SoxE","Pl10A","Elav","WntQ","VasaA","VasaB","Smad1/5","Sox6","Sox7","SoxB","SoxC","SoxF1",
-                                                  "TgfβB","TgfβF","TgfβG","TgfβN","WntA","WntC","WntD","WntI","WntL","WntN","WntR","WntS",
-                                                  "WntT","Eya","SmadRa","MsiB","Gata","FzdC","FzdD","DvlA","TcfB","Cdx","Gli","PaxB",
-                                                  "AE-like1","CA1","CA2","NCBT-like1","Spiculin","Triactinin","βcatB","TboxC","NKA","NKB",
-                                                  "Nanos","Hex","Smad4","TboxA","Hmx","SixA","Bra1","MsiA","Lrp5/6","TcfA","βcatA","Bra2",
+  mutate(gene_name = factor(gene_name, levels = c("Sox-E","Pl10-A","Elav","Wnt-Q","Vasa-A","Vasa-B","Smad-1/5","Sox-6","Sox-7","Sox-B","Sox-C","Sox-F1",
+                                                  "Tgfβ-B","Tgfβ-F","Tgfβ-G","Tgfβ-N","Wnt-A","Wnt-C","Wnt-D","Wnt-I","Wnt-L","Wnt-N","Wnt-R","Wnt-S",
+                                                  "Wnt-T","Eya","Smad-Ra","Msi-B","Gata","Fzd-C","Fzd-D","Dvl-A","Tcf-B","Cdx","Gli","Pax-B",
+                                                  "AE-like-1","CA-1","CA-2","NCBT-like-1","Spiculin","Triactinin","βcat-B","Tbox-C","NK-A","NK-B",
+                                                  "Nanos","Hex","Smad-4","Tbox-A","Hmx","Six-A","Bra-1","Msi-A","Lrp-5/6","Tcf-A","βcat-A","Bra-2",
                                                   "Pl10B")),
          sig = case_when(p_val_adj < 0.05 ~ "*",
-                         TRUE ~ NA)) %>%
+                         TRUE ~ NA)
+         ) %>%
   arrange(zscore) %>%
   
   
   ggplot(aes(gene_name, as_factor(Var2))) +
   
   geom_rect(data = . %>% distinct(cell_identity),
-            aes(fill = cell_identity), alpha = 0.2, inherit.aes = FALSE,
+            aes(fill = cell_identity), alpha = 0.15, inherit.aes = FALSE,
             xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
   geom_vline(xintercept = Inf, color = "#4f4f4f") +
   scale_fill_manual(values = c("Accessory cells" = "#B49440",
@@ -441,11 +442,11 @@ dotplot_markers_publication <- p$data %>%
                     guide = "none") +
   ggnewscale::new_scale_fill() +
   
-  geom_point(aes(size = pct, fill = zscore), shape = 21, color = "#08306B", alpha = 0.8) +
+  geom_point(aes(size = pct, fill = zscore), shape = 21, color = "#08306B") +
   geom_text(aes(label = sig), size = 3, color = "white", fontface = "bold", vjust = 0.65) +
   
   scale_fill_distiller(palette = "Blues", direction = 1) +
-  # scale_color_gradient(high = "#08306B", low = "#DEEBF7") +
+  scale_color_gradient(high = "#08306B", low = "#DEEBF7") +
   
   scale_y_discrete(limits = rev) +
   scale_x_discrete(position = "top") +
@@ -512,12 +513,12 @@ panel_umaps_noLegend <- ggpubr::ggarrange(umap_clusters,
                                                                      nudge_x = -4, nudge_y = 0.1, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 10.1, y = 1.9, label = "Accessory cells"),
                                                                      aes(x = x, y = y, label = label), nudge_x = -1.8, nudge_y = 1.2) +
-                                            ggrepel::geom_text_repel(data = data.frame(x = 11.9, y = 5.2, label = "Archaeocyte-like\n stem cells"),
+                                            # ggrepel::geom_text_repel(data = data.frame(x = 11.9, y = 5.2, label = "Archaeocyte-like\n stem cells"),
+                                            #                          aes(x = x, y = y, label = label),
+                                            #                          nudge_x = -4, nudge_y = 0.4, lineheight = 0.9) +
+                                            ggrepel::geom_text_repel(data = data.frame(x = 9.6, y = 9.6, label = "Oocytes/early embryos"),
                                                                      aes(x = x, y = y, label = label),
-                                                                     nudge_x = -4, nudge_y = 0.4, lineheight = 0.9) +
-                                            ggrepel::geom_text_repel(data = data.frame(x = 7, y = 9.6, label = "Oocytes/early embryos"),
-                                                                     aes(x = x, y = y, label = label),
-                                                                     nudge_x = -2.5, nudge_y = -1, lineheight = 0.9) +
+                                                                     nudge_x = -3.5, nudge_y = -2, lineheight = 0.9) +
                                             ggrepel::geom_text_repel(data = data.frame(x = 0.9, y = 4.1, label = "Choanocytes"),
                                                                      aes(x = x, y = y, label = label),
                                                                      nudge_x = 2.5, nudge_y = 1.4, lineheight = 0.9) +
