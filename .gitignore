@@ -66,3 +66,4 @@ sycon_cluster_analyses/orthogroup_analysis.tsv.txt
 *slurm*
 sycon_cluster_analyses/SAMap_cnipor.sh
 sycon_cluster_analyses/orthogroup_analysis.tsv
+*.log

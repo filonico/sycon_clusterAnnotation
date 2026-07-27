@@ -47,7 +47,7 @@ mkdir 02c_cellranger_count/03_aggregated/
 
 while read j; do echo $j","$(realpath 02c_cellranger_count/"$j"_count/outs/molecule_info.h5); done <00_input/SRA_toDownload.ls | sed '1i sample_id,molecule_h5' > 02c_cellranger_count/03_aggregated/slac_3ext_aggr.csv
 
-cellranger aggr --id=slac_3ext_aggr --csv=02c_cellranger_count/03_aggregated/slac_3ext_aggr.csv
+cellranger aggr --id=slac_3ext_aggr --csv=02c_cellranger_count/03_aggregated/slac_3ext_aggr.csv --normalize none
 
 mv slac_3ext_aggr/ 02c_cellranger_count/03_aggregated/
 

@@ -26,6 +26,9 @@ parser.add_argument("-c", "--cell_cluster", default = "all",
 parser.add_argument("-t", "--threshold", default = 0.25, type = float, 
                     help = "Mapping score threshold. [default = 0.25]")
 
+parser.add_argument("-l", "--leiden_clusters", action = "store_true", 
+                    help = "Include this flag to use Leiden clusters to compute gene pairs. [default = False]")
+
 
 # check if the user gave no arguments, and if so then print the help
 parser.parse_args(args = None if sys.argv[1:] else ["--help"])
@@ -93,15 +96,22 @@ if not os.path.isdir(output_dir):
 with open(input_pkl, "rb") as file:
     samap_obj = pickle.load(file)
 
-# create a dictionary for the cell cluster column name
-cellCluster_dict = species_metadata.set_index("speciesID")["cellCluster_annotation_name"].to_dict()
-
 # add prefixes for the two species
 for sp in species:
     add_speciesID_to_cluster_names(sp)
 
-# find cluster specific markes
-gpf = GenePairFinder(samap_obj, keys = cellCluster_dict)
+if args.leiden_clusters:
+    # create a dictionary for the cell cluster column name
+    leidCluster_dict = dict.fromkeys(species_metadata["speciesID"], "leiden_clusters")
+
+    # find markers on Leiden clusters
+    gpf = GenePairFinder(samap_obj, keys = leidCluster_dict)
+else:
+    # create a dictionary for the cell cluster column name
+    cellCluster_dict = species_metadata.set_index("speciesID")["cellCluster_annotation_name"].to_dict()
+
+    # find markers on pre-computed clusters
+    gpf = GenePairFinder(samap_obj, keys = cellCluster_dict)
 
 # find gene pairs
 if cell_cluster == "all":
