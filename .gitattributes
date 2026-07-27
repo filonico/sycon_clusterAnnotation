@@ -1,3 +1,4 @@
+# manage push of large files through LSF
 *h5ad filter=lfs diff=lfs merge=lfs -text
 *xz filter=lfs diff=lfs merge=lfs -text
 
