@@ -4,3 +4,7 @@
 
 # manage linguistic stats
 *.ls linguist-language=Text
+
+# remove from stats ESFS
+sycon_cluster_analyses/scripts/23b_ESFS_blobOnly.ipynb -linguist-documentation
+sycon_cluster_analyses/scripts/23a_ESFS.ipynb -linguist-documentation
