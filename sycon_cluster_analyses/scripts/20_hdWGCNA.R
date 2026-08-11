@@ -4,8 +4,7 @@ setwd("/data/evassvis/fn76/sycon/sycon_clusterAnnotation/sycon_cluster_analyses/
 
 suppressMessages({library(tidyverse)
   library(hdWGCNA)
-  library(SeuratExtend)
-  library(GOSemSim)})
+  library(SeuratExtend)})
   # library(smacof)})
 
 
@@ -144,34 +143,15 @@ umap_arrows <- list(
   
   annotation_custom(grob = grid::textGrob(label = "UMAP 2",
                                           x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
-                                          just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))),
-  
-  coord_cartesian(clip = "off"))
+                                          just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))))
 
 umap_coord_x <- list(annotation_custom(grob = grid::textGrob(label = "UMAP 1",
                                                              x = unit(0, "mm"), y = unit(0, "mm") - unit(2.5, "mm"),
-                                                             just = c(0, 1), gp = grid::gpar(fontsize = 10))),
-                     coord_cartesian(clip = "off"))
+                                                             just = c(0, 1), gp = grid::gpar(fontsize = 18))))
 
 umap_coord_y <- list(annotation_custom(grob = grid::textGrob(label = "UMAP 2",
                                                              x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
-                                                             just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))),
-                     coord_cartesian(clip = "off"))
-
-theme_for_UMAPS <- theme(
-  # aspect.ratio = 1,
-  plot.background = element_blank(), 
-  panel.border = element_blank(),
-  panel.background = element_blank(),
-  panel.grid = element_blank(),
-  legend.text = element_text(size = 8),
-  legend.title = element_text(size = 10, face = "bold"),
-  plot.title = element_text(size = 13, hjust = 0.5, vjust = 1.75, face = "bold"),
-  axis.line = element_blank(),
-  axis.ticks = element_blank(),
-  axis.text = element_blank(),
-  axis.title = element_blank()
-)
+                                                             just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 18))))
 
 md_arrows <- list(
   
@@ -206,38 +186,6 @@ md_coord_y <- list(annotation_custom(grob = grid::textGrob(label = "MD 2",
                                                            x = unit(0, "mm") - unit(2.5, "mm"), y = unit(0, "mm"),
                                                            just = c(0, 0), rot = 90, gp = grid::gpar(fontsize = 10))),
                    coord_cartesian(clip = "off"))
-
-
-theme_for_plots <- theme(
-  # aspect.ratio = 1,
-  plot.background = element_rect(fill = "transparent", colour = NA), 
-  panel.background = element_blank(),
-  panel.grid.minor = element_blank(),
-  panel.grid.major = element_line(color = "grey90", lineend = "round"),
-  panel.border = element_rect(colour = "black", linewidth = .6),
-  legend.background = element_rect(fill = "transparent", colour = NA),
-  legend.key = element_rect(fill = "transparent", colour = NA),
-  legend.key.width = unit(.4, "cm"),
-  legend.key.height = unit(.4, "cm"),
-  legend.position = "right",
-  legend.title = element_text(face = "bold"),
-  # plot.title = element_text(size = 13, hjust = 0.0, vjust = 1.75, face = "bold"),
-  axis.line = element_blank(),
-  axis.ticks = element_line(colour = "black", linewidth = .4),
-  axis.ticks.length = unit(0.10, "cm"),
-  axis.text.x = element_text(color = "black",
-                             margin = margin(t = 4, r = 0, b = 0, l = 0)),
-  axis.text.y = element_text(color = "black",
-                             margin = margin(t = 0, r = 4, b = 0, l = 0)),
-  axis.title.y = element_text(angle = 90, size = 13,
-                              margin = margin(t = 0, r = 10, b = 0, l = 0)),
-  axis.title.x = element_text(angle = 0, size = 13,
-                              margin = margin(t = 10, r = 0, b = 0, l = 0)),
-  strip.text = element_text(color = "black", face = "bold", hjust = 0),
-  strip.placement = "outside"
-  # strip.background = element_rect(color = "black", linewidth = .6, linetype = "solid"),
-  # strip.text.x = element_text(color = "black")
-)
 
 
 ##########################################
@@ -437,17 +385,30 @@ module_umaps <- Map(plot_module_UMAP, modules, cols)
 module_umaps <- lapply(module_umaps, function(p)
   p +
     scale_y_continuous(breaks = seq(-10, 10, 5)) +
-    coord_cartesian(clip = "off") +
-    theme_bw() +
+    # coord_cartesian(clip = "off") +
+    theme_bw(base_size = 18) +
     theme(legend.position = "none",
-          axis.ticks = element_blank(),
-          axis.title = element_blank(),
-          axis.text = element_text(color = "#545454"),
-          panel.grid = element_blank(),
-          panel.border = element_rect(color = "#545454"),
-          # plot.margin = margin(0, 0, 0, 6, "mm")
-          )
+          plot.background = element_rect(fill = "transparent", colour = NA), 
+          panel.background = element_blank(),
+          panel.border = element_rect(fill = NA, linewidth = 1),
+          panel.grid.major = element_line(color = "grey90", lineend = "round", linewidth = .5),
+          panel.grid.minor.x = element_line(color = "grey90", lineend = "round", linewidth = .5),
+          panel.grid.minor.y = element_blank(),
+          axis.line = element_blank(),
+          axis.ticks = element_line(colour = "grey90", linewidth = .5),
+          axis.ticks.length = unit(0.10, "cm"),
+          axis.text.x = element_text(color = "black",
+                                     margin = margin(t = 4, r = 0, b = 0, l = 0)),
+          axis.text.y = element_text(color = "black",
+                                     margin = margin(t = 0, r = 4, b = 0, l = 0)),
+          axis.title.y = element_blank(),
+          axis.title.x = element_blank(),
+          strip.placement = "outside",
+          strip.background = element_blank(),
+          strip.text.x = element_text(face = "bold", angle = 0, hjust = 0),
+          strip.clip = "off")
 )
+
 
 module_umaps$red <- module_umaps$red +
   annotate("text", x = -7.3, y = 9.9, hjust = 0,
@@ -507,17 +468,15 @@ panel_def <-
   module_umaps$brown +
   module_umaps$yellow + 
   module_umaps$turquoise +
-  patchwork::plot_layout(nrow = 2) +
-  theme(plot.tag = element_text(size = 14, face = "bold"),
-        plot.tag.location = "plot")
+  patchwork::plot_layout(nrow = 2)
 panel_def
 
 ggsave("12_hdWGCNA/01_RNA_assay/fig2_hdWGCNA_new.png",
        panel_def, device = "png",
-       height = 5.133, width = 7.630, units = "in", dpi = 300, bg = "white")
+       height = 5.201*2, width = 7.600*2, units = "in", dpi = 300, bg = "white")
 ggsave("12_hdWGCNA/01_RNA_assay/fig2_hdWGCNA_new.pdf",
        panel_def, device = cairo_pdf,
-       height = 5.133, width = 7.630, units = "in", dpi = 300, bg = "white")
+       height = 5.201*2, width = 7.600*2, units = "in", dpi = 300, bg = "white")
 
 
 #######################################

@@ -175,12 +175,12 @@ boxplot_panels <- Velocity_scVelo_processed_subset_S.object[[]] %>%
   ggplot(aes(x = seurat_clusters, y = value)) +
   geom_jitter(aes(colour = value_scaled), alpha = 0.6,
               size = 0.6, width = 0.1) +
-  geom_boxplot(color = "grey10", outliers = FALSE) +
+  geom_boxplot(color = "grey10", outliers = FALSE, size = .6) +
   
   scale_color_gradient2(high = "#cc132e", mid = "#f3f3f3", low = "#3b4dbc",
                         midpoint = 0, guide = "none") +
   
-  scale_x_discrete(breaks = seq(0, 32, 4),
+  scale_x_discrete(breaks = seq(0, 32, 2),
                    minor_breaks = seq(0, 32)) +
   
   labs(x = "Cell clusters") +
@@ -191,6 +191,7 @@ boxplot_panels <- Velocity_scVelo_processed_subset_S.object[[]] %>%
   theme(
     plot.background = element_rect(fill = "transparent", colour = NA), 
     panel.background = element_blank(),
+    panel.border = element_rect(fill = NA, linewidth = 1),
     panel.grid.major = element_line(color = "grey90", lineend = "round", linewidth = .5),
     panel.grid.minor.x = element_line(color = "grey90", lineend = "round", linewidth = .5),
     panel.grid.minor.y = element_blank(),
@@ -207,7 +208,7 @@ boxplot_panels <- Velocity_scVelo_processed_subset_S.object[[]] %>%
     strip.placement = "outside",
     strip.background = element_blank(),
     strip.text.x = element_text(face = "bold", angle = 0, hjust = 0),
-    strip.clip = "off",
+    strip.clip = "off"
   )
 boxplot_panels
 

@@ -7,6 +7,10 @@ library(ggsankeyfier)
 library(ggpubr)
 library(RColorBrewer)
 library(purrr)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(glmmTMB)
 
 
 #############################
@@ -19,14 +23,13 @@ theme_for_plots <- theme(
   panel.background = element_blank(),
   panel.grid.minor = element_blank(),
   panel.grid.major = element_line(color = "grey90", lineend = "round"),
-  panel.border = element_rect(colour = "black", linewidth = .6),
+  panel.border = element_rect(colour = "black", linewidth = 1),
   legend.background = element_rect(fill = "transparent", colour = NA),
   legend.key = element_rect(fill = "transparent", colour = NA),
   legend.key.width = unit(.4, "cm"),
   legend.key.height = unit(.4, "cm"),
   legend.position = "right",
-  legend.title = element_text(face = "bold", size = 10),
-  legend.text = element_text(size = 10),
+  legend.title = element_text(face = "bold"),
   axis.line = element_blank(),
   axis.ticks = element_line(colour = "black", linewidth = .4),
   axis.ticks.length = unit(0.10, "cm"),
@@ -34,9 +37,9 @@ theme_for_plots <- theme(
                              margin = margin(t = 4, r = 0, b = 0, l = 0)),
   axis.text.y = element_text(color = "black",
                              margin = margin(t = 0, r = 4, b = 0, l = 0)),
-  axis.title.y = element_text(angle = 90, size = 13,
+  axis.title.y = element_text(angle = 90, size = 14,
                               margin = margin(t = 0, r = 10, b = 0, l = 0)),
-  axis.title.x = element_text(angle = 0, size = 13,
+  axis.title.x = element_text(angle = 0, size = 14,
                               margin = margin(t = 10, r = 0, b = 0, l = 0)),
   strip.text = element_text(color = "black", face = "bold", hjust = 0),
   strip.placement = "outside"
@@ -206,7 +209,7 @@ compute_score_distribution <- function(filename, threshold, subsample = TRUE) {
   return(df)
 }
 
-plot_boxplot <- function(mapp_score_df) {
+plot_boxplot <- function(mapp_score_df, significance_comparison) {
   
   cnidaria_n_scores <- length(subset(mapp_score_df,
                                      category_broad == "Within Cnidaria")$mapp_score)
@@ -215,28 +218,47 @@ plot_boxplot <- function(mapp_score_df) {
   cnidariaVSporifera_n_scores <- length(subset(mapp_score_df,
                                                category_broad == "Porifera vs Cnidaria")$mapp_score)
   
+  stat_df <- data.frame(group1 = c("Within Porifera", "Within Porifera", "Porifera vs Cnidaria"),
+                        group2 = c("Porifera vs Cnidaria", "Within Cnidaria", "Within Cnidaria"),
+                        p = summary(significance_comparison$contrasts)$p.value) %>%
+    mutate(p.signif = case_when(p < 0.0001 ~ "****",
+                                p < 0.001  ~ "***",
+                                p < 0.01   ~ "**",
+                                p < 0.05   ~ "*",
+                                TRUE       ~ "ns"),
+           y.position = c(1.05, 1.12, 1.19))
+  
   boxplot <- mapp_score_df %>%
-    ggplot(aes(x = mapp_score, y = category_broad, col = category_broad, fill = category_broad)) +
-    geom_jitter(size = 2, height = 0.4) +
+    ggplot(aes(y = mapp_score, x = category_broad,
+               col = category_broad, fill = category_broad)) +
+    geom_jitter(size = 2, width = 0.4) +
     
     scale_color_manual(values = colors$alpha) +
     
     geom_boxplot(width = 0.4, col = "black", linewidth = 0.7,
-                 outliers = FALSE, staplewidth = 0.5) +
+                 outliers = FALSE) +
+    
+    stat_pvalue_manual(stat_df, label = "p.signif", size = 5,
+                       xmin = "group1", xmax = "group2", y.position = "y.position",
+                       coord.flip = TRUE, tip.length = 0, bracket.size = 0.7) +
     
     # stat_compare_means(comparisons = wilcox_comparisons, method = "wilcox.test",
-    #                    symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), 
+    #                    p.adjust.method = "BH", label = "p.signif", bracket.size = 0.7,
+    #                    tip.length = 0,
+    #                    symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1),
     #                                       symbols = c("****", "***", "**", "*", "ns"))) +
     
     scale_fill_manual(values = colors$main) +
-    scale_y_discrete(limits = rev,
+    scale_x_discrete(limits = rev,
                      labels = c(paste0("Within\nCnidaria\n(n = ", format(cnidaria_n_scores, big.mark = ","), ")"),
                                 paste0("Porifera vs\nCnidaria\n(n = ", format(cnidariaVSporifera_n_scores, big.mark = ","), ")"),
                                 paste0("Within\nPorifera\n(n = ", format(porifera_n_scores, big.mark = ","), ")"))) +
     
+    coord_flip() +
+    
     labs(x = "Mapping scores", y = "Comparison") +
     
-    theme_bw(base_size = 12) +
+    theme_bw(base_size = 18) +
     theme_for_plots +
     theme(legend.position = "none",
           axis.title.y = element_blank())
@@ -249,7 +271,7 @@ plot_survival <- function(mapp_score_df) {
   survival_plot <- mapp_score_df %>%
     ggplot(aes(x = mapp_score, y = survival)) +
     
-    geom_line(aes(color = category_broad), linewidth = 1) +
+    geom_line(aes(color = category_broad), linewidth = 1.2) +
     scale_color_manual(values = colors$main) +
     
     # geom_text(x = 0.55, y = 0.9, label = "KS test, p = 0.002") +
@@ -259,14 +281,14 @@ plot_survival <- function(mapp_score_df) {
     guides(color = guide_legend(keyheight = 0.8,
                                 default.unit = "cm")) +
     
-    theme_bw(base_size = 12) +
+    theme_bw(base_size = 18) +
     theme_for_plots +
     theme(legend.position = "inside",
-          legend.position.inside = c(0.72, 0.82),
+          legend.position.inside = c(0.67, 0.82),
           legend.background = element_rect(fill = "white",
                                            colour = "black", linewidth = .4),
           legend.title = element_blank(),
-          legend.margin = margin(0, 6, 0, 3, "mm"))
+          legend.margin = margin(0, 9, 0, 3, "mm"))
   
   return(survival_plot)
 }
@@ -420,29 +442,53 @@ colors <- list(main  = setNames(c("#ffd166", "#ef476f", "#26547c"), comparisons)
 df_stitched_samap <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
                                                 0.4, subsample = FALSE)
 
-df_stitched_samap
+# fit the mixed-effects model
+# Fixed effect: group
+# Random effects: cell_type_1 and cell_type_2, crossed (not nested)
+df_stitched_samap <- df_stitched_samap %>%
+  mutate(source_ID = factor(source_ID),
+         target_ID = factor(target_ID),
+         category_broad = factor(category_broad),
+         mapp_score_logis = car::logit(mapp_score, adjust = 0.001))
+df_stitched_samap %>% View
 
-df_stitched_samap <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
-                                                0.4, subsample = TRUE)
+mem <- lmer(mapp_score_logis ~ category_broad + (1 | source_ID) + (1 | target_ID),
+            data = df_stitched_samap)
+m_beta <- glmmTMB(mapp_score ~ category_broad + (1 | source_ID) + (1 | target_ID),
+                  data = df_stitched_samap, family = beta_family(link = "logit"))
 
-df_stitched_samap
+summary(mem)
+summary(m_beta)
+
+# pairwise comparisons between groups
+emm <- emmeans(mem, pairwise ~ category_broad, adjust = "BH")
+summary(emm$contrasts)
+
+emm_beta <- emmeans(m_beta, pairwise ~ category_broad, adjust = "BH",
+                    type = "response")
+summary(emm_beta$contrasts)
+
+plot(mem)
+qqnorm(resid(mem)); qqline(resid(mem))
 
 
-wilcox_comparisons <- combn(levels(df_stitched_samap$category_broad), 2, simplify = FALSE)
-pairwise.wilcox.test(df_stitched_samap$mapp_score, df_stitched_samap$category_broad, p.adj = "bonferroni")
+cnidaria_scores <- subset(df_stitched_samap,
+                          category_broad == "Within Cnidaria")$mapp_score
+porifera_scores <- subset(df_stitched_samap,
+                          category_broad == "Within Porifera")$mapp_score
+cnidariaVSporifera_scores <- subset(df_stitched_samap,
+                                    category_broad == "Porifera vs Cnidaria")$mapp_score
 
-cnidaria_scores <- subset(df_stitched_samap, category_broad == "Within Cnidaria")$mapp_score
-porifera_scores <- subset(df_stitched_samap, category_broad == "Within Porifera")$mapp_score
-cnidariaVSporifera_scores <- subset(df_stitched_samap, category_broad == "Porifera vs Cnidaria")$mapp_score
+boxplot_threshold04 <- plot_boxplot(df_stitched_samap, emm) +
+  scale_y_continuous(limits = c(0.4, 1.2))
+boxplot_threshold04
 
 ks.test(porifera_scores, cnidaria_scores, alternative = "greater")
 ks.test(porifera_scores, cnidariaVSporifera_scores, alternative = "greater")
 effsize::cliff.delta(cnidaria_scores, porifera_scores)
 
-boxplot_threshold04 <- plot_boxplot(df_stitched_samap)
-boxplot_threshold04
-
-survival_plot_threshold04 <- plot_survival(df_stitched_samap)
+survival_plot_threshold04 <- plot_survival(df_stitched_samap) +
+  scale_x_continuous(limits = c(0.4, 1.2))
 survival_plot_threshold04
 
 panel_statistics <- ggarrange(boxplot_threshold04 + theme(axis.title.x = element_blank()),
@@ -452,10 +498,10 @@ panel_statistics
 
 ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.png",
        panel_statistics, device = "png",
-       width = 6/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
+       width = 6, height = 8.7/1.1, dpi = 300, unit = "in", bg = "white")
 ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.pdf",
        panel_statistics, device = cairo_pdf,
-       width = 6/1.1, height = 10/1.1, dpi = 300, unit = "in", bg = "white")
+       width = 6, height = 8.7/1.1, dpi = 300, unit = "in", bg = "white")
 
 panel_statistics <- panel_statistics +
   theme(plot.margin = margin(0, 0, 0, 10, "mm"))
@@ -514,7 +560,7 @@ ggsave("05_SAMap_porifera/03_plots/statistics_threshold0.pdf",
 ####################
 
 
-heatmap_samap <- read.table("05_SAMap_porifera/01_mapping_scores/AqueScilSlac_leiden3Clusters_100topCells_samapMappingTable.tsv",
+heatmap_samap <- read.table("05NEW_SAMap_porifera/01_mapping_scores/AqueScilSlac_leiden3Clusters_costum_100topCells_samapMappingTable.tsv",
                             header = TRUE, sep = "\t") %>%
   
   # create a long-format dataframe
@@ -560,16 +606,14 @@ heatmap_samap <- read.table("05_SAMap_porifera/01_mapping_scores/AqueScilSlac_le
   ggplot(aes(x = source_cell, y = target_cell, fill = mapp_score)) +
   geom_tile() +
   
-  # scale_fill_gradient2(high = "#f1f1f1", mid = "#8da3ca", low = "#6b0077",
-  #                      midpoint = 0.5, limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
-  
-  # scale_fill_viridis(option = "cividis", limits = c(0, 1), breaks = c(0, 0.5, 1)) +
-  scale_fill_distiller(palette = "OrRd", direction = 1) +
-  # scale_fill_gradient2(low = "#F6F6F4", mid = "#E2916F", high = "#64001C",
-  #                      midpoint = 0.5) +
-  scale_x_discrete(sec.axis = dup_axis(name = "")) +
+  scale_fill_gradientn(colours = c("#F7F7F7", "#D1E5F0", "#4393C3",
+                                   "#D6604D", "#B2182B", "#67001F"),
+                       limits = c(0, 1),breaks = c(0, 0.5, 1)) +
+  # "#67001F" "#B2182B" "#D6604D" "#F4A582" "#FDDBC7" "#F7F7F7" "#D1E5F0" "#92C5DE" "#4393C3"
+  # "#2166AC" "#053061"
+  scale_x_discrete(sec.axis = dup_axis()) +
   scale_y_discrete(limits = rev) +
-  labs(x = "Sycon ciliatum", fill = "Mapping\nscore") +
+  labs(x = "Sycon ciliatum", fill = "SAMap\nmapp score") +
   
   facet_wrap(~ target_species, scales = "free_y", space = "free_y",
              strip.position = "right",
@@ -578,22 +622,25 @@ heatmap_samap <- read.table("05_SAMap_porifera/01_mapping_scores/AqueScilSlac_le
                  "Slac" = "Spongilla\nlacustris")
                ))) +
   
+  theme_bw(base_size = 18) +
   theme_for_plots +
-  
-  theme(panel.border = element_blank(),
-        axis.ticks = element_blank(),
-        axis.title.x = element_text(face = "italic", size = 10),
+  theme(axis.ticks = element_blank(),
+        axis.title.x = element_text(face = "italic"),
+        axis.title.x.top = element_blank(),
         axis.title.y = element_blank(),
-        legend.title = element_text(margin = margin(b = 15)),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.title = element_text(size = 12, margin = margin(b = 15), face = "plain"),
+        legend.text = element_text(size = 10),
         strip.placement = "outside",
         strip.background = element_blank(),
-        strip.text.y = element_text(face = "italic", size = 10, hjust = 0.5),
+        strip.text.y = element_text(size = 14, , face = "italic", hjust = 0.5),
         strip.clip = "off")
 heatmap_samap
 
-ggsave("05_SAMap_porifera/03_plots/samap_heatmap.png",
+ggsave("05NEW_SAMap_porifera/03_plots/samap_heatmap.png",
        heatmap_samap, device = "png",
-       width = 12/1.1, height = 8/1.1, dpi = 300, unit = "in", bg = "white")
-ggsave("05_SAMap_porifera/03_plots/samap_heatmap.pdf",
+       width = 12.566/1.1, height = 8.7/1.1, dpi = 300, unit = "in", bg = "white")
+ggsave("05NEW_SAMap_porifera/03_plots/samap_heatmap.pdf",
        heatmap_samap, device = cairo_pdf,
-       width = 12/1.1, height = 8/1.1, dpi = 300, unit = "in", bg = "white")
+       width = 12.566/1.1, height = 8.7/1.1, dpi = 300, unit = "in", bg = "white")

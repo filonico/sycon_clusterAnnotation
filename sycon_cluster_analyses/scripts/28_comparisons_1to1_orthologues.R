@@ -88,6 +88,10 @@ theme_for_UMAPS <- theme(
 #     LOAD DATA     #
 #####################
 
+# scilslac <- schard::h5ad2seurat("05NEW_SAMap_porifera/ScilSlac_leiden3Clusters_samap.h5ad")
+# aquescilslac <- schard::h5ad2seurat("05NEW_SAMap_porifera/AqueScilSlac_leiden3Clusters_samap.h5ad")
+# aqueslac <- schard::h5ad2seurat("05NEW_SAMap_porifera/AqueSlac_leiden3Clusters_samap.h5ad")
+
 # import orthogroup data
 PCA_1to1 <- read.table("17_comparisons_1to1_orthologues/01_orthologue_tables/1_to_1_Sycon_Spongilla.tsv",
                        header = TRUE, sep = "\t", na.strings = c("", ".")) %>%
@@ -149,14 +153,14 @@ slac_gene_names_conversion <- read.table("../spongilla_remapping/00_input/slac_g
   arrange(gene_id)
 slac_gene_names_conversion
 
-# load SAMap connecting gene pairs table
-ScilSlac_samapGenePairs <- read.table("05_SAMap_porifera/02_gene_pairs/02_threshold04_leidenClusters/ScilSlac_leiden3Clusters_all_samapGenePairs.tsv",
-           fill = TRUE, na.strings = "", header = TRUE) %>%
-  rename_with(~ paste0(., "_gene_pair"), .cols = !matches("_pval[12]$")) %>%
-  pivot_longer(cols = everything(),
-               names_to = c("mapping_clusters", ".value"),
-               names_pattern = "^(.*)_(gene_pair|pval1|pval2)$") %>%
-  drop_na()
+# # load SAMap connecting gene pairs table
+# ScilSlac_samapGenePairs <- read.table("05_SAMap_porifera/02_gene_pairs/02_threshold04_leidenClusters/ScilSlac_leiden3Clusters_all_samapGenePairs.tsv",
+#            fill = TRUE, na.strings = "", header = TRUE) %>%
+#   rename_with(~ paste0(., "_gene_pair"), .cols = !matches("_pval[12]$")) %>%
+#   pivot_longer(cols = everything(),
+#                names_to = c("mapping_clusters", ".value"),
+#                names_pattern = "^(.*)_(gene_pair|pval1|pval2)$") %>%
+#   drop_na()
 
 
 ################################################
@@ -208,6 +212,13 @@ orthogroup_full_set_with_geneCounts
 # load the integrated SAMap object
 ScilSlac_samap <- sceasy::convertFormat("05_SAMap_porifera/ScilSlac_leiden3Clusters_samap.h5ad",
                                         from = "anndata", to = "seurat")
+
+tmp <- ScilSlac_samap %>% DimPlot(group.by = "Scil_orig.ident")
+
+tmp@data %>%
+  filter(Scil_orig.ident != "unassigned") %>%
+  ggplot(aes(UMAP_1, UMAP_2, col = Scil_orig.ident)) +
+  geom_point(size = 0.8)
 
 # plot and save the integrated UMAP
 ScilSlac_samap %>%
@@ -466,17 +477,17 @@ orthogroup_full_set_with_geneCounts_clusterCounts %>%
 #     ANALYSE DATA WITH SAMap CONNECTING PAIRS     #
 ####################################################
 
-# compute longer samap table
-ScilSlac_samapGenePairs_longer <- ScilSlac_samapGenePairs %>%
-  filter(pval1 < 0.05 & pval2 < 0.05) %>%
-  select(-c(pval1, pval2)) %>%
-  separate_rows(gene_pair, sep = ";") %>%
-  separate(mapping_clusters, sep = "\\.", remove = FALSE,
-           into = c("Scil_cluster", "Slac_cluster")) %>%
-  rename("mapping_id" = "mapping_clusters",
-         "gene_id" = "gene_pair") %>%
-  mutate(gene_id = str_remove(gene_id, "^.+_"))
-ScilSlac_samapGenePairs_longer
+# # compute longer samap table
+# ScilSlac_samapGenePairs_longer <- ScilSlac_samapGenePairs %>%
+#   filter(pval1 < 0.05 & pval2 < 0.05) %>%
+#   select(-c(pval1, pval2)) %>%
+#   separate_rows(gene_pair, sep = ";") %>%
+#   separate(mapping_clusters, sep = "\\.", remove = FALSE,
+#            into = c("Scil_cluster", "Slac_cluster")) %>%
+#   rename("mapping_id" = "mapping_clusters",
+#          "gene_id" = "gene_pair") %>%
+#   mutate(gene_id = str_remove(gene_id, "^.+_"))
+# ScilSlac_samapGenePairs_longer
 
 # calculate the proportion of connecting pairs in each og_type
 contingency_connectingGenes <- orthogroup_full_set_with_geneCounts_clusterCounts_connections %>%

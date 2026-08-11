@@ -56,6 +56,9 @@ Rscript scripts/06_prepare_h5ad_files.R
 #     RUN SAMap     #
 #####################
 
+# run SAMap with the new pipeline that includes harmony correction of scil
+python scripts/07NEW_run_SAMap.py -s Aque,Scil,Slac -a both -i 04_preprocessed_scRNAseqs/ -d 03_pairwise_diamond/ -n 6 -o 05NEW_SAMap_porifera/
+
 # run SAMap for sponges vs sponges
 bash scripts/08_run_SAMap.sh Scil,Slac,Aque both 05b_SAMap_recodedSyconClusters | tee -a 05b_SAMap_recodedSyconClusters/Porifera_samap_both_leiden.log
 
