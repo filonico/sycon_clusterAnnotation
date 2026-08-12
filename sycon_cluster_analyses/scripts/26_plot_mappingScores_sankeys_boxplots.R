@@ -221,10 +221,10 @@ plot_boxplot <- function(mapp_score_df, significance_comparison) {
   stat_df <- data.frame(group1 = c("Within Porifera", "Within Porifera", "Porifera vs Cnidaria"),
                         group2 = c("Porifera vs Cnidaria", "Within Cnidaria", "Within Cnidaria"),
                         p = summary(significance_comparison$contrasts)$p.value) %>%
-    mutate(p.signif = case_when(p < 0.0001 ~ "****",
-                                p < 0.001  ~ "***",
-                                p < 0.01   ~ "**",
-                                p < 0.05   ~ "*",
+    mutate(p.signif = case_when(p < 0.0001 ~ "***",
+                                p < 0.001  ~ "**",
+                                p < 0.01   ~ "*",
+                                # p < 0.05   ~ "*",
                                 TRUE       ~ "ns"),
            y.position = c(1.05, 1.12, 1.19))
   
@@ -439,7 +439,7 @@ comparisons <- c("Porifera vs Cnidaria",
 colors <- list(main  = setNames(c("#ffd166", "#ef476f", "#26547c"), comparisons),
                alpha = setNames(c("#f6e4ac", "#f98db3", "#8797a4"), comparisons))
 
-df_stitched_samap <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
+df_stitched_samap <- compute_score_distribution("15NEW_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_costum_100topCells_samapMappingTable.tsv",
                                                 0.4, subsample = FALSE)
 
 # fit the mixed-effects model
@@ -450,9 +450,9 @@ df_stitched_samap <- df_stitched_samap %>%
          target_ID = factor(target_ID),
          category_broad = factor(category_broad),
          mapp_score_logis = car::logit(mapp_score, adjust = 0.001))
-df_stitched_samap %>% View
+# df_stitched_samap %>% View
 
-mem <- lmer(mapp_score_logis ~ category_broad + (1 | source_ID) + (1 | target_ID),
+mem <- lmer(mapp_score ~ category_broad + (1 | source_ID) + (1 | target_ID),
             data = df_stitched_samap)
 m_beta <- glmmTMB(mapp_score ~ category_broad + (1 | source_ID) + (1 | target_ID),
                   data = df_stitched_samap, family = beta_family(link = "logit"))
@@ -496,10 +496,10 @@ panel_statistics <- ggarrange(boxplot_threshold04 + theme(axis.title.x = element
                               nrow = 2, align = "hv")
 panel_statistics
 
-ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.png",
+ggsave("05NEW_SAMap_porifera/03_plots/statistics_threshold04.png",
        panel_statistics, device = "png",
        width = 6, height = 8.7/1.1, dpi = 300, unit = "in", bg = "white")
-ggsave("05_SAMap_porifera/03_plots/statistics_threshold04.pdf",
+ggsave("05NEW_SAMap_porifera/03_plots/statistics_threshold04.pdf",
        panel_statistics, device = cairo_pdf,
        width = 6, height = 8.7/1.1, dpi = 300, unit = "in", bg = "white")
 
@@ -529,7 +529,7 @@ ggsave("05_SAMap_porifera/03_plots/final_panel_fig3.pdf",
 #################################################
 
 # read in mapping scores
-df_stitched_samap_allScores <- compute_score_distribution("15_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_100topCells_samapMappingTable_leidenClusters.tsv",
+df_stitched_samap_allScores <- compute_score_distribution("15NEW_SAMap_cnidaria/01_mapping_scores/AqueHvulNvecScilSlacSpisXesp_leiden3Clusters_costum_100topCells_samapMappingTable.tsv",
                                                           0)
 
 options(scipen = 999)
