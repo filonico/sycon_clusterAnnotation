@@ -72,6 +72,9 @@ parser.add_argument("-n", "--number_of_SAMap_iterarions",
                     type = positive_int, default = 6,
                     help = "Number of SAMap iterations to perform. [default: 6]")
 
+parser.add_argument("-l", "--cluster_stitched_manifold", action = "store_true",
+                    help = "Perform Leiden clustering with default parameters on the stitched manifold.")
+
 parser.add_argument("-o", "--output_dir", required = True,
                     help = "Output directory.")
 
@@ -177,6 +180,9 @@ if args.analysis == "stitched" or args.analysis == "both":
 
     sys.stdout.flush()
 
+    if args.cluster_stitched_manifold:
+        sam_mapping.samap.leiden_clustering(res = 4)
+
     # save the computed SAMAP object
     save_samap(sam_mapping, os.path.join(output_dir, "".join(species_to_process) + "_" + output_suffix + "_samap.pkl"))
     sam_mapping.samap.save_anndata(os.path.join(output_dir, "".join(species_to_process) + "_" + output_suffix + "_samap.h5ad"))
@@ -196,6 +202,9 @@ if args.analysis == "pairwise" or args.analysis == "both":
         sam_mapping.run(pairwise = True,
                         neigh_from_keys = speciesTrue_dict,
                         n_iterations = number_of_SAMap_iterarions)
+
+        if args.cluster_stitched_manifold:
+            sam_mapping.samap.leiden_clustering(res = 4)
 
         # save the computed SAMAP object
         save_samap(sam_mapping, os.path.join(output_dir, "".join(pair) + "_" + output_suffix + "_samap.pkl"))

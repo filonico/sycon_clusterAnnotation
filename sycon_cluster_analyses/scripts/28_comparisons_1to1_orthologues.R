@@ -88,7 +88,13 @@ theme_for_UMAPS <- theme(
 #     LOAD DATA     #
 #####################
 
-# scilslac <- schard::h5ad2seurat("05NEW_SAMap_porifera/ScilSlac_leiden3Clusters_samap.h5ad")
+scilslac <- schard::h5ad2seurat("prova/ScilSlac_leiden3Clusters_samap.h5ad")
+
+scilslac[[]]$leiden_clusters <- as_factor(scilslac[[]]$leiden_clusters)
+DimPlot2(scilslac, features = c("leiden_clusters", "Scil_leiden_clusters", "Slac_leiden_clusters"), cols = "bright")
+
+scilslac[[]] %>%
+  count(leiden_clusters, Scil_leiden_clusters, Slac_leiden_clusters)
 # aquescilslac <- schard::h5ad2seurat("05NEW_SAMap_porifera/AqueScilSlac_leiden3Clusters_samap.h5ad")
 # aqueslac <- schard::h5ad2seurat("05NEW_SAMap_porifera/AqueSlac_leiden3Clusters_samap.h5ad")
 
@@ -309,7 +315,7 @@ slac_samap_allMarkers <- read.table("17_comparisons_1to1_orthologues/slac_samap_
 allMarkers_per_cluster <- scil_samap_allMarkers %>%
   
   # add the species ID before the cluster name
-  mutate(leiden_clusters = paste0("Scil_", leiden_clusters),
+  mutate(cluster = paste0("Scil_", cluster),
          protein_id = gene) %>%
   
   # append slac markers
