@@ -249,7 +249,7 @@ orthogroup_full_set_with_geneCounts_clusterCounts <- orthogroup_full_set_with_ge
          og_type = factor(og_type, levels = c("1 to 1", "Single copy\nin Sycon",
                                               "Single copy\nin Spongilla", "Many to many")))
 
-orthogroup_full_set_with_geneCounts_clusterCounts %>% View
+orthogroup_full_set_with_geneCounts_clusterCounts
 
 
 #############################################################
@@ -528,7 +528,7 @@ cluster_specific_1to1 <- orthogroup_full_set_with_clusterCount %>%
          prop_1to1_specific_perCluster = n_1to1_specific_perCluster/total_markers_perCluster) %>%
   ungroup() %>%
   distinct(cluster, prop_1to1_specific_perCluster, n_1to1_specific_perCluster, total_markers_perCluster)
-cluster_specific_1to1 %>% View
+cluster_specific_1to1
 
 # subset the integrated object to only scil
 scil_samap <- ScilSlac_samap %>%
@@ -557,8 +557,7 @@ slac_samap[[]] <- slac_samap[[]] %>%
             by = join_by("Slac_leiden_clusters" == "cluster")) %>%
   replace(is.na(.), 0) %>%
   column_to_rownames()
-slac_samap[[]] %>% View
-
+slac_samap[[]]
 
 # plot UMAPs
 panel_umap <- ScilSlac_samap %>%
@@ -591,7 +590,7 @@ scilslac_umap_integrated <- scilslac_umap_integrated_raw@data %>%
                              TRUE ~ species)) %>%
   
   ggplot(aes(Xumap_1, Xumap_2, col = species)) +
-  geom_point(size = 0.8) +
+  geom_point(size = 0.01) +
   
   scale_color_manual(values = c("#ff9ebb", "#b9375e")) +
   
@@ -652,12 +651,12 @@ scilslac_umap_integrated
 
 scilslac_umap_prop_1to1_faceted <- bind_rows(slac_umap_prop_1to1_raw@data %>%
                                                mutate(species = "Slac"),
-                                             scil_umap_prop_1to1@data %>%
+                                             scil_umap_prop_1to1_raw@data %>%
                                                mutate(species = "Scil")) %>%
   arrange(prop_1to1_specific_perCluster) %>%
   
   ggplot(aes(Xumap_1, Xumap_2, col = prop_1to1_specific_perCluster)) +
-  geom_point(size = 0.8) +
+  geom_point(size = 0.01) +
   
   labs(title = expression(paste(bolditalic("S. lacustris"), bold(" cell subset"))),
        col = "TUi") +
@@ -696,6 +695,82 @@ ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.png",
 ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.pdf",
        panel_umap, device = cairo_pdf,
        height = 4, width = 8, dpi = 300, unit = "in", bg = "white")
+
+
+###########################################
+#     CORRELATION WITH MAPPING SCORES     #
+###########################################
+
+mappScore_per_tui <- read.table("05NEW_SAMap_porifera/01_mapping_scores/ScilSlac_leiden3Clusters_leiden_100topCells_samapMappingTable.tsv",
+           header = TRUE, sep = "\t") %>%
+  
+  # create a long-format dataframe
+  pivot_longer(-X, names_to = "target_ID", values_to = "mapp_score") %>%
+  rename("source_ID" = "X") %>% 
+  
+  # filter out rows with mapping scores below the threshold
+  filter(mapp_score > 0) %>%
+  
+  group_by(source_ID) %>%
+  slice_max(order_by = mapp_score) %>%
+  ungroup() %>%
+  
+  left_join(cluster_specific_1to1,
+            by = join_by("source_ID" == "cluster")) %>%
+  replace_na(list(prop_1to1_specific_perCluster = 0,
+                  n_1to1_specific_perCluster = 0,
+                  total_markers_perCluster = 0)) %>%
+  separate(source_ID, into = c("source_species"), sep = "_",
+           remove = FALSE)
+
+lm_plots <- mappScore_per_tui %>%
+  ggplot(aes(mapp_score, prop_1to1_specific_perCluster,
+             fill = source_species, col = source_species)) +
+  
+  geom_point() +
+  geom_smooth(method = "lm", alpha = 0.2) +
+  
+  labs(x = "SAMap mapping score", y = "TUi") +
+  scale_color_manual(values = c("#ff9ebb", "#b9375e")) +
+  scale_fill_manual(values = c("#ff9ebb", "#b9375e")) +
+  
+  scale_x_continuous(limits = c(0, 1),
+                     breaks = c(0, 0.5, 1)) +
+  
+  scale_y_continuous(breaks = function(x) {
+    c(0, max(x, na.rm = TRUE) / 2, max(x, na.rm = TRUE))},
+    labels = scales::number_format(accuracy = 0.01)) +
+
+  facet_wrap(~ source_species, scale = "free_y", nrow = 2) +
+
+  theme_bw(base_size = 12) +
+  theme(plot.background = element_rect(fill = "transparent", colour = NA),
+        panel.background = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = "grey90", lineend = "round"),
+        panel.border = element_rect(colour = "black", linewidth = .6),
+        legend.position = "none",
+        axis.line = element_blank(),
+        axis.ticks = element_line(colour = "black", linewidth = .4),
+        axis.ticks.length = unit(0.10, "cm"),
+        axis.text.x = element_text(color = "black", margin = margin(t = 4, r = 0, b = 0, l = 0)),
+        axis.text.y = element_text(color = "black", margin = margin(t = 0, r = 4, b = 0, l = 0)),
+        axis.title.y = element_text(angle = 90, size = 12, margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.title.x = element_text(angle = 0, size = 12, margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        strip.text = element_blank(),
+        strip.background = element_blank())
+lm_plots
+
+lm <- mappScore_per_tui %>%
+  group_by(source_species) %>%
+  do(model = lm(prop_1to1_specific_perCluster ~ mapp_score, data = .))
+
+ggsave("17_comparisons_1to1_orthologues/linear_models_plots.png",
+       lm_plots, device = "png",
+       height = 4, width = 3, dpi = 300, unit = "in", bg = "white")
+ggsave("17_comparisons_1to1_orthologues/linear_models_plots.pdf",
+       lm_plots, device = cairo_pdf,
+       height = 1, width = 2, dpi = 300, unit = "in", bg = "white")
 
 
 ############################

@@ -41,6 +41,8 @@ theme_for_UMAPS <- theme(
 #     GET MARKERS     #
 #######################
 
+# DimPlot2(Sycon, features = c("g8720", "g6836", "g2683"))
+
 sycon_allMarkers_default %>%
   group_by(cluster) %>%
   filter(avg_log2FC > 1) %>%

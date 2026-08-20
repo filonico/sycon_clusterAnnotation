@@ -66,3 +66,11 @@ sycon_cluster_analyses/orthogroup_analysis.tsv.txt
 sycon_cluster_analyses/SAMap_cnipor.sh
 sycon_cluster_analyses/orthogroup_analysis.tsv
 *.log
+*slurm*
+*05NEW*
+./pinacocytes_markers.dmnd
+./00_input/pinacocytes_markers.faa
+./00_input/sycon_capricorn_markers.fna
+sycon_cluster_analyses/pinacocytes_markers.dmnd
+sycon_cluster_analyses/00_input/pinacocytes_markers.faa
+sycon_cluster_analyses/00_input/sycon_capricorn_markers.fna
