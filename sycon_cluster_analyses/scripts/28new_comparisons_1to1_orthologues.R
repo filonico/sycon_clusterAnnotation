@@ -542,8 +542,7 @@ scil_samap[[]] <- scil_samap[[]] %>%
             by = join_by("Scil_leiden_clusters" == "cluster")) %>%
   replace(is.na(.), 0) %>%
   column_to_rownames()
-scil_samap[[]] %>% View
-
+scil_samap[[]] 
 
 # subset the integrated object to only slac
 slac_samap <- ScilSlac_samap %>%
@@ -594,16 +593,17 @@ scilslac_umap_integrated <- scilslac_umap_integrated_raw@data %>%
   
   scale_color_manual(values = c("#ff9ebb", "#b9375e")) +
   
-  guides(color = guide_legend(label.position = "bottom",
-                              override.aes = list(size = 4))) +
+  guides(color = guide_legend(label.position = "right",
+                              override.aes = list(size = 3),
+                              ncol = 1)) +
   
-  labs(title = "SAMap integrated space", col = "Species") +
+  labs(title = "SAMap\nmanifold", col = "Species") +
   
   umap_arrows +
   theme_bw(base_size = 12) +
   theme_for_UMAPS +
-  theme(legend.position = "bottom",
-        legend.title = element_text(hjust = 0.5, size = 10),
+  theme(legend.position = "none",
+        legend.title = element_blank(),
         legend.title.position = "top",
         legend.text = element_text(face = "italic"))
 scilslac_umap_integrated
@@ -662,10 +662,10 @@ scilslac_umap_prop_1to1_faceted <- bind_rows(slac_umap_prop_1to1_raw@data %>%
        col = "TUi") +
   
   scale_color_distiller(palette = "Blues", direction = 1,
-                        breaks = c(0, 0.125, 0.25)) +
+                        breaks = c(0, 0.25)) +
   
-  guides(size = guide_legend(label.position = "bottom"),
-         # color = guide_colorbar(barheight = 1)
+  guides(size = guide_legend(label.position = "right"),
+         color = guide_colorbar(barheight = 3)
          ) +
   
   facet_wrap(~ species,
@@ -680,21 +680,21 @@ scilslac_umap_prop_1to1_faceted <- bind_rows(slac_umap_prop_1to1_raw@data %>%
         strip.background = element_blank(),
         strip.clip = "off",
         plot.title = element_blank(),
-        legend.position = "bottom",
+        legend.position = "right",
         legend.title = element_text(hjust = 0.5, size = 10),
         legend.title.position = "top")
 scilslac_umap_prop_1to1_faceted
 
-panel_umap <- ggpubr::ggarrange(scilslac_umap_integrated, scilslac_umap_prop_1to1_faceted,
-                                widths = c(1,2))
-panel_umap
-
-ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.png",
-       panel_umap, device = "png",
-       height = 4, width = 8, dpi = 300, unit = "in", bg = "white")
-ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.pdf",
-       panel_umap, device = cairo_pdf,
-       height = 4, width = 8, dpi = 300, unit = "in", bg = "white")
+# panel_umap <- ggpubr::ggarrange(scilslac_umap_integrated, scilslac_umap_prop_1to1_faceted,
+#                                 widths = c(1,2))
+# panel_umap
+# 
+# ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.png",
+#        panel_umap, device = "png",
+#        height = 4, width = 8, dpi = 300, unit = "in", bg = "white")
+# ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.pdf",
+#        panel_umap, device = cairo_pdf,
+#        height = 4, width = 8, dpi = 300, unit = "in", bg = "white")
 
 
 ###########################################
@@ -764,6 +764,15 @@ lm_plots
 lm <- mappScore_per_tui %>%
   group_by(source_species) %>%
   do(model = lm(prop_1to1_specific_perCluster ~ mapp_score, data = .))
+lm$model
+
+spearman_stats <- mappScore_per_tui %>%
+  group_by(source_species) %>%
+  summarise(n = n(),
+            rho = cor.test(mapp_score, prop_1to1_specific_perCluster, method = "spearman")$estimate,
+            p_val = cor.test(mapp_score, prop_1to1_specific_perCluster, method = "spearman")$p.value,
+            .groups = "drop")
+spearman_stats
 
 ggsave("17_comparisons_1to1_orthologues/linear_models_plots.png",
        lm_plots, device = "png",
@@ -771,6 +780,79 @@ ggsave("17_comparisons_1to1_orthologues/linear_models_plots.png",
 ggsave("17_comparisons_1to1_orthologues/linear_models_plots.pdf",
        lm_plots, device = cairo_pdf,
        height = 1, width = 2, dpi = 300, unit = "in", bg = "white")
+
+# add best mapp score per cluster
+scil_samap[[]] <- scil_samap[[]] %>%
+  rownames_to_column() %>%
+  left_join(mappScore_per_tui,
+            by = join_by("Scil_leiden_clusters" == "source_ID",
+                         "prop_1to1_specific_perCluster",
+                         "n_1to1_specific_perCluster", "total_markers_perCluster")) %>%
+  replace(is.na(.), 0) %>%
+  column_to_rownames()
+scil_samap[[]]
+
+slac_samap[[]] <- slac_samap[[]] %>%
+  rownames_to_column() %>%
+  left_join(mappScore_per_tui,
+            by = join_by("Slac_leiden_clusters" == "source_ID",
+                         "prop_1to1_specific_perCluster",
+                         "n_1to1_specific_perCluster", "total_markers_perCluster")) %>%
+  replace(is.na(.), 0) %>%
+  column_to_rownames()
+slac_samap[[]] 
+
+# plot umaps with mapping scores
+scil_umap_mapscore_raw <- FeaturePlot(scil_samap, features = "mapp_score")
+slac_umap_mapscore_raw <- FeaturePlot(slac_samap, features = "mapp_score")
+
+scilslac_umap_mappscore_faceted <- bind_rows(slac_umap_mapscore_raw@data %>%
+                                               mutate(species = "Slac"),
+                                             scil_umap_mapscore_raw@data %>%
+                                               mutate(species = "Scil")) %>%
+  arrange(mapp_score) %>%
+  
+  ggplot(aes(Xumap_1, Xumap_2, col = mapp_score)) +
+  geom_point(size = 0.01) +
+  
+  labs(title = expression(paste(bolditalic("S. lacustris"), bold(" cell subset"))),
+       col = "SAMap\nmap score") +
+  
+  scale_color_gradientn(colours = c("#F7F7F7", "#D1E5F0", "#4393C3",
+                                    "#D6604D", "#B2182B", "#67001F"),
+                        limits = c(0, 1),breaks = c(0, 0.5, 1)) +
+  
+  guides(size = guide_legend(label.position = "right"),
+         color = guide_colorbar(barheight = 3)
+         ) +
+
+  facet_wrap(~ species) +
+  
+  theme_bw(base_size = 12) +
+  theme_for_UMAPS +
+  theme(strip.text = element_blank(),
+        strip.background = element_blank(),
+        strip.clip = "off",
+        plot.title = element_blank(),
+        legend.position = "right",
+        legend.title = element_text(hjust = 0.5, size = 10),
+        legend.title.position = "top")
+scilslac_umap_mappscore_faceted
+
+panel_umap <- ggpubr::ggarrange(scilslac_umap_integrated,
+                                ggpubr::ggarrange(scilslac_umap_prop_1to1_faceted,
+                                                  scilslac_umap_mappscore_faceted,
+                                                  nrow = 2),
+                                widths = c(1,2))
+panel_umap
+
+ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.png",
+       panel_umap, device = "png",
+       height = 4, width = 6, dpi = 300, unit = "in", bg = "white")
+ggsave("17_comparisons_1to1_orthologues/panel_cluster_uniqueness.pdf",
+       panel_umap, device = cairo_pdf,
+       height = 4, width = 6, dpi = 300, unit = "in", bg = "white")
+
 
 
 ############################
